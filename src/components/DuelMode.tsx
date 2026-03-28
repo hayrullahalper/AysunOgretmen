@@ -38,8 +38,9 @@ export default function DuelMode() {
     try {
       const q = await geminiService.generateDuelQuestion(grade, subject, topic);
       setQuestion(q);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      alert(error.message || 'Düello sorusu oluşturulurken bir hata oluştu.');
     } finally {
       setTimeout(() => setLoading(false), 800);
     }

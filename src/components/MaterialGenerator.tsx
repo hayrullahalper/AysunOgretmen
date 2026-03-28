@@ -40,9 +40,9 @@ export default function MaterialGenerator() {
       const finalType = useCustomRequest ? 'Özel İstek' : `${questionCount} ${questionType} (Zorluk: ${difficulty})`;
       const data = await geminiService.generateQuestions(grade, subject, finalTopic, finalType);
       setResult(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert('Bir hata oluştu, lütfen tekrar deneyin.');
+      alert(error.message || 'Materyal oluşturulurken bir hata oluştu.');
     } finally {
       setLoading(false);
     }

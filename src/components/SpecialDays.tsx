@@ -37,8 +37,9 @@ export default function SpecialDays() {
     try {
       const data = await aiService.generateSpecialDayContent(activeDay, type);
       setResult({ ...data, type });
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      alert(error.message || 'İçerik oluşturulurken bir hata oluştu.');
     } finally {
       setLoading(false);
     }
@@ -51,8 +52,9 @@ export default function SpecialDays() {
     try {
       const url = await aiService.generateColoringPage(activeDay);
       setImageResult(url);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      alert(error.message || 'Görsel oluşturulurken bir hata oluştu.');
     } finally {
       setLoading(false);
     }

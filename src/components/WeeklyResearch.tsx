@@ -15,8 +15,9 @@ export default function WeeklyResearch() {
     try {
       const data = await geminiService.generateWeeklyResearch(currentGrade || grade);
       setResearch(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      alert(error.message || 'Haftalık araştırma konusu oluşturulurken bir hata oluştu.');
     } finally {
       setLoading(false);
     }

@@ -45,9 +45,9 @@ export default function StoryFactory() {
       } finally {
         setImageLoading(false);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert('Bir hata oluştu.');
+      alert(error.message || 'Hikaye oluşturulurken bir hata oluştu.');
     } finally {
       setLoading(false);
     }
