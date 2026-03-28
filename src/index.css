@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+@theme {
+  --color-pastel-pink: #fce4ec;
+  --color-pastel-blue: #e3f2fd;
+  --color-pastel-green: #e8f5e9;
+  --color-pastel-yellow: #fffde7;
+  --color-pastel-purple: #f3e5f5;
+  
+  --color-primary: #5c6bc0;
+  --color-secondary: #26a69a;
+
+  /* Force hex colors for slate to avoid oklch in html2canvas */
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+  
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-slate-900 text-slate-100 transition-colors duration-300;
+  }
+}
+
+.glass {
+  @apply bg-slate-800/70 backdrop-blur-md border border-slate-700/20 shadow-xl;
+}
+
+.btn-primary {
+  @apply px-6 py-3 bg-primary text-white rounded-2xl font-semibold shadow-lg hover:scale-105 active:scale-95 transition-all duration-200 disabled:opacity-50 hover:brightness-110 dark:hover:brightness-125;
+}
+
+.btn-secondary {
+  @apply px-6 py-3 bg-secondary text-white rounded-2xl font-semibold shadow-lg hover:scale-105 active:scale-95 transition-all duration-200 hover:brightness-110 dark:hover:brightness-125;
+}
+
+.input-field {
+  @apply w-full h-[46px] p-3 rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-primary outline-none placeholder:text-slate-400 transition-all duration-200 appearance-none box-border leading-tight;
+}
+
+select.input-field {
+  @apply pr-10 bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20stroke%3D%22%236b7280%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%221.5%22%20d%3D%22m6%208%204%204%204-4%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1.5em_1.5em] bg-[right_0.5rem_center] bg-no-repeat;
+}
+
+.dark .input-field {
+  @apply border-slate-700 bg-slate-800 text-white placeholder:text-slate-500;
+}

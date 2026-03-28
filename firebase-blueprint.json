@@ -1,0 +1,69 @@
+{
+  "entities": {
+    "students": {
+      "title": "Students",
+      "description": "Öğrenci bilgileri",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "surname": { "type": "string" },
+        "ownerId": { "type": "string" }
+      },
+      "required": ["id", "name", "surname", "ownerId"]
+    },
+    "materials": {
+      "title": "Materials",
+      "description": "Üretilen eğitim materyalleri",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "object" },
+        "type": { "type": "string", "enum": ["quiz", "story"] },
+        "createdAt": { "type": "string" },
+        "ownerId": { "type": "string" }
+      },
+      "required": ["id", "title", "content", "type", "createdAt", "ownerId"]
+    },
+    "settings": {
+      "title": "Settings",
+      "description": "Öğretmen ayarları",
+      "type": "object",
+      "properties": {
+        "defaultGrade": { "type": "string" },
+        "ownerId": { "type": "string" }
+      },
+      "required": ["defaultGrade", "ownerId"]
+    },
+    "users": {
+      "title": "Users",
+      "description": "Kullanıcı rolleri ve bilgileri",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "user"] }
+      },
+      "required": ["uid", "email", "role"]
+    }
+  },
+  "firestore": {
+    "/students/{studentId}": {
+      "schema": "students",
+      "description": "Öğrenci kayıtları"
+    },
+    "/materials/{materialId}": {
+      "schema": "materials",
+      "description": "Materyal kayıtları"
+    },
+    "/settings/{userId}": {
+      "schema": "settings",
+      "description": "Kullanıcı ayarları"
+    },
+    "/users/{userId}": {
+      "schema": "users",
+      "description": "Kullanıcı profilleri"
+    }
+  }
+}

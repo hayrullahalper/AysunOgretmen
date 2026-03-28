@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() &&
+        ((exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+          (request.auth.token.email == "alperhayrullah@gmail.com"));
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isDocOwner() {
+      return isAuthenticated() && resource != null && request.auth.uid == resource.data.ownerId;
+    }
+
+    function isValidSettings(data) {
+      return data.ownerId == request.auth.uid;
+    }
+
+    // Rules
+    match /students/{studentId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /materials/{materialId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /settings/{userId} {
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isValidSettings(request.resource.data);
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && request.resource.data.role == 'user';
+      allow update: if isAdmin() || (isOwner(userId) && request.resource.data.role == resource.data.role);
+    }
+  }
+}
