@@ -41,7 +41,6 @@ export default function DuelMode() {
     } catch (error) {
       console.error(error);
     } finally {
-      setLoading(true);
       setTimeout(() => setLoading(false), 800);
     }
   }, [grade, subject, topic]);
@@ -63,7 +62,7 @@ export default function DuelMode() {
         s2 = students[Math.floor(Math.random() * students.length)];
       }
       setTempDuelists([s1, s2]);
-    }, 100);
+    }, 200);
 
     setTimeout(async () => {
       clearInterval(interval);
@@ -121,11 +120,11 @@ export default function DuelMode() {
       <div className="flex flex-col items-center space-y-12">
         <button 
           onClick={startDuel} 
-          disabled={loading}
+          disabled={loading || shuffling}
           className="btn-primary flex items-center gap-2 text-xl px-12 h-[60px] shadow-lg hover:shadow-primary/20"
         >
-          {loading ? <Loader2 className="animate-spin" /> : <Swords size={24} />}
-          {loading ? 'Kura Çekiliyor...' : 'Düelloyu Başlat!'}
+          {shuffling || loading ? <Loader2 className="animate-spin" /> : <Swords size={24} />}
+          {shuffling ? 'Kura Çekiliyor...' : loading ? 'Soru Hazırlanıyor...' : 'Düelloyu Başlat!'}
         </button>
 
         <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
@@ -203,16 +202,6 @@ export default function DuelMode() {
                   <div className="text-xl font-bold text-slate-100 leading-relaxed">
                     {question.question}
                   </div>
-
-                  {question.options && (
-                    <div className="grid grid-cols-1 gap-2 mt-2">
-                      {question.options.map((opt: string, idx: number) => (
-                        <div key={idx} className="p-2 bg-slate-700/50 rounded-xl border border-slate-600 text-slate-200 font-medium text-sm">
-                          {String.fromCharCode(65 + idx)}) {opt}
-                        </div>
-                      ))}
-                    </div>
-                  )}
 
                   {showAnswer && (
                     <motion.div 

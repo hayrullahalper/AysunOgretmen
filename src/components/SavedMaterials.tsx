@@ -224,6 +224,14 @@ export default function SavedMaterials() {
                   </div>
                 ) : (
                   <div className="prose prose-invert max-w-none">
+                    {solvingMaterial.content.image && (
+                      <img 
+                        src={solvingMaterial.content.image} 
+                        alt={solvingMaterial.title} 
+                        className="w-full aspect-video object-cover rounded-3xl border border-slate-700 shadow-2xl mb-8"
+                        referrerPolicy="no-referrer"
+                      />
+                    )}
                     <div className="p-8 bg-slate-800/50 rounded-3xl border border-slate-700 whitespace-pre-wrap text-lg leading-relaxed text-slate-300">
                       {solvingMaterial.content.story}
                     </div>

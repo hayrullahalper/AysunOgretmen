@@ -178,7 +178,7 @@ export const geminiService = {
   generateDuelQuestion: async (grade: string, subject: string, topic: string) => {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `${grade}. sınıf ${subject} dersi, ${topic} konusu hakkında 2 öğrencinin yarışabileceği, hızlı cevaplanabilecek 3 şıklı bir test sorusu üret.`,
+      contents: `${grade}. sınıf ${subject} dersi, ${topic} konusu hakkında 2 öğrencinin yarışabileceği, hızlı cevaplanabilecek 3 şıklı bir test sorusu üret. (Rastgelelik ID: ${Math.random().toString(36).substring(7)})`,
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
         responseMimeType: "application/json",

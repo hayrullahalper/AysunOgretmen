@@ -15,15 +15,19 @@ export const exportToPDF = async (title: string, content: any, type: 'quiz' | 's
     el.style.width = `${width}px`;
     el.style.padding = '20px';
     el.style.backgroundColor = '#ffffff';
-    el.style.color = '#333333';
-    el.style.fontFamily = 'Arial, sans-serif';
+    el.style.color = '#1a1a1a';
+    el.style.fontFamily = "'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
     // Reset any inherited oklch colors
-    el.style.borderColor = '#eeeeee';
+    el.style.borderColor = '#e2e8f0';
     el.innerHTML = `
       <style>
-        * { box-sizing: border-box; color: #333333 !important; border-color: #eeeeee !important; }
-        h1, h2, h3, h4 { color: #5c6bc0 !important; }
-        .dashed-line { border-bottom: 1px dashed #cccccc !important; }
+        * { box-sizing: border-box; color: #1a1a1a !important; border-color: #e2e8f0 !important; }
+        h1 { color: #3f51b5 !important; font-size: 24px; margin-bottom: 5px; }
+        h2 { color: #334155 !important; font-size: 18px; margin-bottom: 15px; }
+        h3 { color: #475569 !important; font-size: 16px; border-bottom: 2px solid #3f51b5; padding-bottom: 5px; margin-top: 20px; }
+        .story-text { line-height: 1.8; font-size: 14px; text-align: justify; color: #334155 !important; }
+        .question-block { margin-bottom: 15px; padding: 10px; background-color: #f8fafc; border-radius: 8px; }
+        .dashed-line { border-bottom: 1px dashed #cbd5e1 !important; }
       </style>
       ${html}
     `;
@@ -66,21 +70,22 @@ export const exportToPDF = async (title: string, content: any, type: 'quiz' | 's
 
   if (type === 'story') {
     const storyHtml = `
-      <div style="line-height: 1.6; font-size: 15px; text-align: justify; margin-bottom: 20px;">
+      ${content.image ? `<img src="${content.image}" style="width: 100%; border-radius: 12px; margin-bottom: 25px; border: 1px solid #e2e8f0;" />` : ''}
+      <div class="story-text">
         ${content.story.replace(/\n/g, '<br>')}
       </div>
     `;
     await addBlockToPDF(createEl(storyHtml));
 
-    const questionsTitleHtml = `<h3 style="font-size: 16px; border-bottom: 1px solid #eeeeee; padding-bottom: 5px;">Okuma-Anlama Soruları</h3>`;
+    const questionsTitleHtml = `<h3>Okuma-Anlama Soruları</h3>`;
     await addBlockToPDF(createEl(questionsTitleHtml));
 
     for (let i = 0; i < content.questions.length; i++) {
       const q = content.questions[i];
       const qHtml = `
-        <div style="margin-bottom: 10px;">
-          <p style="font-weight: bold; margin: 0;">${i + 1}. ${q.question}</p>
-          <div style="height: 30px; border-bottom: 1px dashed #cccccc; margin-top: 5px;"></div>
+        <div class="question-block">
+          <p style="font-weight: bold; margin: 0; font-size: 14px;">${i + 1}. ${q.question}</p>
+          <div style="height: 35px; border-bottom: 1px dashed #cbd5e1; margin-top: 8px;"></div>
         </div>
       `;
       await addBlockToPDF(createEl(qHtml));

@@ -36,6 +36,7 @@ export default function StoryFactory() {
       try {
         const imageUrl = await geminiService.generateStoryImage(data.summary);
         setStoryImage(imageUrl);
+        setResult((prev: any) => ({ ...prev, image: imageUrl }));
       } catch (imgErr) {
         console.error("Image generation failed:", imgErr);
       } finally {
