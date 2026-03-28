@@ -80,29 +80,39 @@ export const geminiService = {
   },
 
   generateStoryImage: async (summary: string) => {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: [
-          {
-            text: `A colorful, friendly, high-quality digital illustration for a children's storybook. Scene: ${summary}. Style: vibrant, cute, whimsical, professional illustration, no text.`,
-          },
-        ],
-      },
-      config: {
-        imageConfig: {
-          aspectRatio: "16:9",
-          imageSize: "1K"
-        }
-      },
-    });
-    
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData) {
-        return `data:image/png;base64,${part.inlineData.data}`;
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: {
+          parts: [
+            {
+              text: `A colorful, friendly, high-quality digital illustration for a children's storybook. Scene: ${summary}. Style: vibrant, cute, whimsical, professional illustration, no text.`,
+            },
+          ],
+        },
+        config: {
+          imageConfig: {
+            aspectRatio: "16:9",
+            imageSize: "1K"
+          }
+        },
+      });
+      
+      if (!response.candidates?.[0]?.content?.parts) {
+        const safetyBlock = response.candidates?.[0]?.finishReason;
+        throw new Error(safetyBlock === 'SAFETY' ? "Güvenlik filtresi nedeniyle görsel oluşturulamadı." : "Görsel oluşturma yanıtı boş döndü.");
       }
+
+      for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData) {
+          return `data:image/png;base64,${part.inlineData.data}`;
+        }
+      }
+      throw new Error("Görsel verisi bulunamadı.");
+    } catch (error: any) {
+      console.error("Gemini Image Error:", error);
+      throw error;
     }
-    throw new Error("Image generation failed");
   },
 
   generateInstantQuestion: async (studentName: string) => {

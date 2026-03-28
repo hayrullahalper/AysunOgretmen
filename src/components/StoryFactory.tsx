@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { geminiService } from '../lib/gemini';
 import { firestoreService } from '../lib/firestore';
 import { exportToPDF } from '../lib/pdf';
-import { BookOpen, Sparkles, Download, Save, Loader2, Book } from 'lucide-react';
+import { BookOpen, Sparkles, Download, Save, Loader2, Book, XCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export default function StoryFactory() {
@@ -11,6 +11,7 @@ export default function StoryFactory() {
   const [length, setLength] = useState<'Kısa' | 'Orta' | 'Uzun'>('Orta');
   const [loading, setLoading] = useState(false);
   const [imageLoading, setImageLoading] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
   const [result, setResult] = useState<any>(null);
   const [storyImage, setStoryImage] = useState<string | null>(null);
 
@@ -27,6 +28,7 @@ export default function StoryFactory() {
     setLoading(true);
     setResult(null);
     setStoryImage(null);
+    setImageError(null);
     try {
       const data = await geminiService.generateStory(topic, questionCount, length);
       setResult(data);
@@ -37,8 +39,9 @@ export default function StoryFactory() {
         const imageUrl = await geminiService.generateStoryImage(data.summary);
         setStoryImage(imageUrl);
         setResult((prev: any) => ({ ...prev, image: imageUrl }));
-      } catch (imgErr) {
+      } catch (imgErr: any) {
         console.error("Image generation failed:", imgErr);
+        setImageError(imgErr.message || "Görsel oluşturulamadı.");
       } finally {
         setImageLoading(false);
       }
@@ -146,6 +149,32 @@ export default function StoryFactory() {
             <div className="w-full aspect-video bg-slate-800/50 rounded-3xl border border-slate-700 flex flex-col items-center justify-center gap-4 mb-8">
               <Loader2 className="animate-spin text-primary" size={48} />
               <p className="text-slate-400 font-bold">Hikaye Görseli Hazırlanıyor...</p>
+            </div>
+          ) : imageError ? (
+            <div className="w-full aspect-video bg-slate-800/50 rounded-3xl border border-red-900/50 flex flex-col items-center justify-center gap-4 mb-8 p-6 text-center">
+              <XCircle className="text-red-500" size={48} />
+              <div>
+                <p className="text-red-400 font-bold">Görsel Oluşturulamadı</p>
+                <p className="text-slate-400 text-sm mt-1">{imageError}</p>
+              </div>
+              <button 
+                onClick={async () => {
+                  setImageLoading(true);
+                  setImageError(null);
+                  try {
+                    const imageUrl = await geminiService.generateStoryImage(result.summary);
+                    setStoryImage(imageUrl);
+                    setResult((prev: any) => ({ ...prev, image: imageUrl }));
+                  } catch (err: any) {
+                    setImageError(err.message || "Tekrar deneme başarısız.");
+                  } finally {
+                    setImageLoading(false);
+                  }
+                }}
+                className="mt-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-xs font-bold transition-colors"
+              >
+                Tekrar Dene
+              </button>
             </div>
           ) : storyImage && (
             <motion.div 

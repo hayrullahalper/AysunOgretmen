@@ -310,13 +310,18 @@ export default function App() {
     <div className="min-h-screen flex flex-col bg-slate-900 overflow-x-hidden">
       {/* Header */}
       <header className="glass sticky top-0 z-50 px-6 py-4 flex justify-between items-center bg-slate-800/80 border-b border-slate-700/20">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-primary rounded-xl text-white">
+        <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setActiveTab('students')}>
+          <div className="p-2 bg-gradient-to-br from-primary to-indigo-600 rounded-xl text-white shadow-lg shadow-primary/20 group-hover:scale-110 transition-transform">
             <GraduationCap size={28} />
           </div>
-          <h1 className="text-xl md:text-2xl font-black tracking-tight text-primary truncate">
-            Aysun Öğretmen
-          </h1>
+          <div className="flex flex-col">
+            <h1 className="text-xl md:text-2xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-primary to-indigo-400 truncate">
+              Aysun Öğretmen
+            </h1>
+            <span className="text-[10px] uppercase tracking-[0.2em] font-bold opacity-40 -mt-1 hidden sm:block">
+              Yapay Zeka Eğitim Asistanı
+            </span>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 md:gap-4">
