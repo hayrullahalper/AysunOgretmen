@@ -19,7 +19,7 @@
       "properties": {
         "id": { "type": "string" },
         "title": { "type": "string" },
-        "content": { "type": "object" },
+        "content": { "type": "string" },
         "type": { "type": "string", "enum": ["quiz", "story"] },
         "createdAt": { "type": "string" },
         "ownerId": { "type": "string" }

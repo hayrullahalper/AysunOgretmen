@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { geminiService } from '../lib/gemini';
 import { firestoreService } from '../lib/firestore';
 import { exportToPDF } from '../lib/pdf';
-import { Sparkles, Download, Save, Loader2, CheckCircle2, XCircle } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Sparkles, Download, Save, Loader2, CheckCircle2, XCircle, Check } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useSettings } from '../hooks/useSettings';
+import ConfirmModal from './ConfirmModal';
 
 export default function MaterialGenerator() {
   const { settings } = useSettings();
@@ -19,6 +20,8 @@ export default function MaterialGenerator() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [userAnswers, setUserAnswers] = useState<Record<number, string>>({});
+  const [showConfirmSave, setShowConfirmSave] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
     if (settings) {
@@ -48,15 +51,22 @@ export default function MaterialGenerator() {
 
   const handleSave = async () => {
     if (!result) return;
-    await firestoreService.saveMaterial({
-      id: crypto.randomUUID(),
-      title: result.title,
-      content: result,
-      type: 'quiz',
-      createdAt: new Date().toISOString(),
-      ownerId: '' // Set by service
-    });
-    alert('Materyal kaydedildi!');
+    setShowConfirmSave(false);
+    try {
+      await firestoreService.saveMaterial({
+        id: crypto.randomUUID(),
+        title: result.title,
+        content: result,
+        type: 'quiz',
+        createdAt: new Date().toISOString(),
+        ownerId: '' // Set by service
+      });
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (error: any) {
+      console.error(error);
+      alert('Kaydedilirken bir hata oluştu.');
+    }
   };
 
   const handleAnswerSelect = (qIndex: number, answer: string) => {
@@ -207,14 +217,30 @@ export default function MaterialGenerator() {
           animate={{ opacity: 1, y: 0 }}
           className="glass p-8 rounded-3xl border-slate-700 shadow-lg bg-slate-800/80"
         >
+          <ConfirmModal
+            isOpen={showConfirmSave}
+            title="Materyali Kaydet"
+            message={`"${result.title}" başlıklı materyali kayıtlı materyallerinize eklemek istiyor musunuz?`}
+            confirmText="Kaydet"
+            cancelText="Vazgeç"
+            onConfirm={handleSave}
+            onCancel={() => setShowConfirmSave(false)}
+            variant="success"
+          />
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 px-4">
             <h3 className="text-2xl font-bold text-slate-100">{result.title}</h3>
             <div className="flex gap-4 w-full sm:w-auto">
               <button 
-                onClick={handleSave}
-                className="flex-1 sm:flex-none px-6 py-3 bg-green-900/30 text-green-400 rounded-xl hover:scale-105 transition-transform flex items-center justify-center gap-2 border border-green-800 font-bold"
+                onClick={() => setShowConfirmSave(true)}
+                disabled={saveSuccess}
+                className={`flex-1 sm:flex-none px-6 py-3 rounded-xl hover:scale-105 transition-transform flex items-center justify-center gap-2 border font-bold ${
+                  saveSuccess 
+                    ? 'bg-green-600/20 text-green-400 border-green-500' 
+                    : 'bg-green-900/30 text-green-400 border-green-800'
+                }`}
               >
-                <Save size={20} /> Kaydet
+                {saveSuccess ? <Check size={20} /> : <Save size={20} />}
+                {saveSuccess ? 'Kaydedildi' : 'Kaydet'}
               </button>
               <button 
                 onClick={async () => await exportToPDF(result.title, result, 'quiz')}

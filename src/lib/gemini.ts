@@ -45,10 +45,12 @@ async function callGeminiWithFallback(params: any, backupModel?: string): Promis
   } catch (error: any) {
     const isQuotaError = error.message?.includes('429') || 
                         error.message?.includes('quota') || 
-                        error.message?.includes('RESOURCE_EXHAUSTED');
+                        error.message?.includes('RESOURCE_EXHAUSTED') ||
+                        error.message?.includes('503') ||
+                        error.message?.includes('UNAVAILABLE');
     
     if (isQuotaError && backupModel && params.model !== backupModel) {
-      console.warn(`Quota exceeded for ${params.model}, trying backup model ${backupModel}`);
+      console.warn(`Quota exceeded or service unavailable for ${params.model}, trying backup model ${backupModel}`);
       return await callGeminiWithFallback({ ...params, model: backupModel });
     }
     throw error;
@@ -58,20 +60,18 @@ async function callGeminiWithFallback(params: any, backupModel?: string): Promis
 // Pollinations Fallback for Images
 async function generateImageWithPollinations(prompt: string): Promise<string | null> {
   try {
-    const seed = Math.floor(Math.random() * 1000000);
-    const width = 1024;
-    const height = 1024;
-    // Pollinations API Key can be passed if available, but usually it's a public URL
-    // We'll use the public URL with the prompt
-    const encodedPrompt = encodeURIComponent(prompt);
-    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${seed}&nologo=true`;
-    
-    // Test if the image is accessible (optional but good for fallback)
-    const response = await fetch(imageUrl, { method: 'HEAD' });
-    if (response.ok) {
-      return imageUrl;
+    const response = await fetch("/api/pollinations/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Pollinations Proxy Error: ${response.status}`);
     }
-    return null;
+
+    const data = await response.json();
+    return data.url;
   } catch (error) {
     console.error("Pollinations Fallback Error:", error);
     return null;
@@ -197,7 +197,9 @@ export const geminiService = {
       
       const isQuotaError = error.message?.includes('429') || 
                           error.message?.includes('quota') || 
-                          error.message?.includes('RESOURCE_EXHAUSTED');
+                          error.message?.includes('RESOURCE_EXHAUSTED') ||
+                          error.message?.includes('503') ||
+                          error.message?.includes('UNAVAILABLE');
       
       if (isQuotaError) {
         console.warn("All Gemini image models exhausted, trying Pollinations fallback...");
@@ -295,7 +297,9 @@ export const geminiService = {
       
       const isQuotaError = error.message?.includes('429') || 
                           error.message?.includes('quota') || 
-                          error.message?.includes('RESOURCE_EXHAUSTED');
+                          error.message?.includes('RESOURCE_EXHAUSTED') ||
+                          error.message?.includes('503') ||
+                          error.message?.includes('UNAVAILABLE');
       
       if (isQuotaError) {
         console.warn("All Gemini image models exhausted for coloring page, trying Pollinations fallback...");

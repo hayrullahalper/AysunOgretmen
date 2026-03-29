@@ -3,6 +3,7 @@ import { firestoreService, Material } from '../lib/firestore';
 import { exportToPDF } from '../lib/pdf';
 import { FileText, Download, Trash2, Calendar, Search, BookOpen, Clock, Play, X, CheckCircle2, XCircle, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import ConfirmModal from './ConfirmModal';
 
 export default function SavedMaterials() {
   const [materials, setMaterials] = useState<Material[]>([]);
@@ -10,16 +11,17 @@ export default function SavedMaterials() {
   const [filter, setFilter] = useState<'all' | 'quiz' | 'story'>('all');
   const [solvingMaterial, setSolvingMaterial] = useState<Material | null>(null);
   const [userAnswers, setUserAnswers] = useState<Record<number, string>>({});
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = firestoreService.getMaterials(setMaterials);
     return () => unsubscribe();
   }, []);
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Bu materyali silmek istediğinize emin misiniz?')) {
-      await firestoreService.deleteMaterial(id);
-    }
+  const handleDelete = async () => {
+    if (!deletingId) return;
+    await firestoreService.deleteMaterial(deletingId);
+    setDeletingId(null);
   };
 
   const handleSolve = (material: Material) => {
@@ -39,6 +41,16 @@ export default function SavedMaterials() {
 
   return (
     <div className="space-y-6">
+      <ConfirmModal
+        isOpen={!!deletingId}
+        title="Materyali Sil"
+        message="Bu materyali kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz."
+        confirmText="Sil"
+        cancelText="Vazgeç"
+        onConfirm={handleDelete}
+        onCancel={() => setDeletingId(null)}
+        variant="danger"
+      />
       <div className="glass p-6 rounded-3xl border-slate-700 shadow-sm bg-slate-800/70">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
           <h2 className="text-2xl font-bold flex items-center gap-2 text-primary">
@@ -86,7 +98,7 @@ export default function SavedMaterials() {
                     <FileText size={24} />
                   </div>
                   <button 
-                    onClick={() => handleDelete(material.id)}
+                    onClick={() => setDeletingId(material.id)}
                     className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-900/20 rounded-lg transition-colors"
                   >
                     <Trash2 size={18} />

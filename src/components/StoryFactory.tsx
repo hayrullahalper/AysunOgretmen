@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { geminiService } from '../lib/gemini';
 import { firestoreService } from '../lib/firestore';
 import { exportToPDF } from '../lib/pdf';
-import { BookOpen, Sparkles, Download, Save, Loader2, Book, XCircle } from 'lucide-react';
+import { BookOpen, Sparkles, Download, Save, Loader2, Book, XCircle, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import ConfirmModal from './ConfirmModal';
 
 export default function StoryFactory() {
   const [topic, setTopic] = useState('');
@@ -14,6 +15,8 @@ export default function StoryFactory() {
   const [imageError, setImageError] = useState<string | null>(null);
   const [result, setResult] = useState<any>(null);
   const [showPdfDialog, setShowPdfDialog] = useState(false);
+  const [showConfirmSave, setShowConfirmSave] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -57,15 +60,25 @@ export default function StoryFactory() {
 
   const handleSave = async () => {
     if (!result) return;
-    await firestoreService.saveMaterial({
-      id: crypto.randomUUID(),
-      title: result.title,
-      content: result,
-      type: 'story',
-      createdAt: new Date().toISOString(),
-      ownerId: '' // Set by service
-    });
-    alert('Hikaye kaydedildi!');
+    setShowConfirmSave(false);
+    try {
+      // Create a copy of the result without the image for saving
+      const { image, ...contentWithoutImage } = result;
+      
+      await firestoreService.saveMaterial({
+        id: crypto.randomUUID(),
+        title: result.title,
+        content: contentWithoutImage,
+        type: 'story',
+        createdAt: new Date().toISOString(),
+        ownerId: '' // Set by service
+      });
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (error: any) {
+      console.error(error);
+      alert('Kaydedilirken bir hata oluştu.');
+    }
   };
 
   return (
@@ -129,14 +142,30 @@ export default function StoryFactory() {
           animate={{ opacity: 1, scale: 1 }}
           className="glass p-8 rounded-3xl bg-slate-800/80 border-slate-700 shadow-lg"
         >
+          <ConfirmModal
+            isOpen={showConfirmSave}
+            title="Hikayeyi Kaydet"
+            message={`"${result.title}" başlıklı hikayeyi kayıtlı materyallerinize eklemek istiyor musunuz?`}
+            confirmText="Kaydet"
+            cancelText="Vazgeç"
+            onConfirm={handleSave}
+            onCancel={() => setShowConfirmSave(false)}
+            variant="success"
+          />
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 px-4">
             <h3 className="text-2xl font-bold text-slate-100">{result.title}</h3>
             <div className="flex gap-4 w-full sm:w-auto">
               <button 
-                onClick={handleSave} 
-                className="flex-1 sm:flex-none px-6 py-3 bg-green-900/30 text-green-400 rounded-xl hover:scale-105 transition-transform flex items-center justify-center gap-2 border border-green-800 font-bold"
+                onClick={() => setShowConfirmSave(true)}
+                disabled={saveSuccess}
+                className={`flex-1 sm:flex-none px-6 py-3 rounded-xl hover:scale-105 transition-transform flex items-center justify-center gap-2 border font-bold ${
+                  saveSuccess 
+                    ? 'bg-green-600/20 text-green-400 border-green-500' 
+                    : 'bg-green-900/30 text-green-400 border-green-800'
+                }`}
               >
-                <Save size={20} /> Kaydet
+                {saveSuccess ? <Check size={20} /> : <Save size={20} />}
+                {saveSuccess ? 'Kaydedildi' : 'Kaydet'}
               </button>
               <button 
                 onClick={() => setShowPdfDialog(true)} 

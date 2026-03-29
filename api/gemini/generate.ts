@@ -34,7 +34,27 @@ export default async function handler(req: any, res: any) {
       params.config = { systemInstruction: SYSTEM_INSTRUCTION };
     }
 
-    const response = await aiInstance.models.generateContent(params);
+    const callWithRetry = async (currentParams: any, retryCount = 0): Promise<any> => {
+      try {
+        return await aiInstance.models.generateContent(currentParams);
+      } catch (error: any) {
+        const isRetryable = error.message?.includes('429') || 
+                            error.message?.includes('503') || 
+                            error.message?.includes('UNAVAILABLE') ||
+                            error.message?.includes('RESOURCE_EXHAUSTED');
+        
+        if (isRetryable && retryCount < 1) {
+          const fallbackModel = "gemini-3.1-flash-lite-preview";
+          if (currentParams.model !== fallbackModel) {
+            console.warn(`Retrying with fallback model ${fallbackModel} due to: ${error.message}`);
+            return await callWithRetry({ ...currentParams, model: fallbackModel }, retryCount + 1);
+          }
+        }
+        throw error;
+      }
+    };
+
+    const response = await callWithRetry(params);
     
     // Safe text extraction
     let text = "";

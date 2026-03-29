@@ -94,7 +94,18 @@ export const firestoreService = {
     if (!auth.currentUser) return () => {};
     const q = query(collection(db, 'materials'), where('ownerId', '==', auth.currentUser.uid));
     return onSnapshot(q, (snapshot) => {
-      const materials = snapshot.docs.map(doc => doc.data() as Material);
+      const materials = snapshot.docs.map(doc => {
+        const data = doc.data() as Material;
+        // Handle stringified content for robustness
+        if (typeof data.content === 'string') {
+          try {
+            data.content = JSON.parse(data.content);
+          } catch (e) {
+            console.error("Failed to parse material content:", e);
+          }
+        }
+        return data;
+      });
       callback(materials);
     }, (error) => {
       firestoreService.handleError(error, 'list', 'materials');
@@ -103,7 +114,13 @@ export const firestoreService = {
   saveMaterial: async (material: Material) => {
     if (!auth.currentUser) return;
     try {
-      await setDoc(doc(db, 'materials', material.id), { ...material, ownerId: auth.currentUser.uid });
+      // Stringify content to avoid "invalid nested entity" errors in some environments
+      const dataToSave = { 
+        ...material, 
+        content: typeof material.content === 'object' ? JSON.stringify(material.content) : material.content,
+        ownerId: auth.currentUser.uid 
+      };
+      await setDoc(doc(db, 'materials', material.id), dataToSave);
     } catch (error) {
       firestoreService.handleError(error, 'write', `materials/${material.id}`);
     }

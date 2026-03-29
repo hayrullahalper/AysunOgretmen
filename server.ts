@@ -29,10 +29,9 @@ async function startServer() {
       const { params } = req.body;
       
       // Use the most up-to-date API key from the environment
-      // Check both GEMINI_API_KEY and API_KEY (used for some image models)
       const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || "";
       if (!apiKey) {
-        throw new Error("Gemini API key is missing in the environment. Please configure GEMINI_API_KEY or API_KEY in your environment variables.");
+        throw new Error("Gemini API key is missing in the environment.");
       }
       
       const aiInstance = new GoogleGenAI({ apiKey });
@@ -44,7 +43,27 @@ async function startServer() {
         params.config = { systemInstruction: SYSTEM_INSTRUCTION };
       }
 
-      const response = await aiInstance.models.generateContent(params);
+      const callWithRetry = async (currentParams: any, retryCount = 0): Promise<any> => {
+        try {
+          return await aiInstance.models.generateContent(currentParams);
+        } catch (error: any) {
+          const isRetryable = error.message?.includes('429') || 
+                              error.message?.includes('503') || 
+                              error.message?.includes('UNAVAILABLE') ||
+                              error.message?.includes('RESOURCE_EXHAUSTED');
+          
+          if (isRetryable && retryCount < 1) {
+            const fallbackModel = "gemini-3.1-flash-lite-preview";
+            if (currentParams.model !== fallbackModel) {
+              console.warn(`Retrying with fallback model ${fallbackModel} due to: ${error.message}`);
+              return await callWithRetry({ ...currentParams, model: fallbackModel }, retryCount + 1);
+            }
+          }
+          throw error;
+        }
+      };
+
+      const response = await callWithRetry(params);
       
       // Safe text extraction
       let text = "";
@@ -64,6 +83,31 @@ async function startServer() {
       const status = error.message?.includes('429') ? 429 : 
                      (error.message?.includes('API key not valid') || error.message?.includes('400')) ? 401 : 500;
       res.status(status).json({ error: error.message || "Internal Server Error", details: error.details || [] });
+    }
+  });
+
+  app.post("/api/pollinations/generate", async (req, res) => {
+    try {
+      const { prompt, model = 'flux', width = 1024, height = 1024, seed = Math.floor(Math.random() * 1000000), enhance = false } = req.body;
+      
+      if (!prompt) {
+        return res.status(400).json({ error: 'Missing prompt' });
+      }
+
+      const apiKey = process.env.POLLINATIONS_API_KEY || "";
+      const encodedPrompt = encodeURIComponent(prompt);
+      
+      // Base URL: gen.pollinations.ai/image/
+      let imageUrl = `https://gen.pollinations.ai/image/${encodedPrompt}?model=${model}&width=${width}&height=${height}&seed=${seed}&enhance=${enhance}`;
+      
+      if (apiKey) {
+        imageUrl += `&key=${apiKey}`;
+      }
+      
+      res.status(200).json({ url: imageUrl });
+    } catch (error: any) {
+      console.error("Pollinations Proxy Error:", error);
+      res.status(500).json({ error: "Internal Server Error" });
     }
   });
 
