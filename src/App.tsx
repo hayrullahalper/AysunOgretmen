@@ -43,6 +43,15 @@ import WeeklyResearch from './components/WeeklyResearch';
 
 type Tab = 'students' | 'generator' | 'wheel' | 'story' | 'saved' | 'settings' | 'special' | 'duel' | 'research';
 
+declare global {
+  interface Window {
+    aistudio?: {
+      hasSelectedApiKey: () => Promise<boolean>;
+      openSelectKey: () => Promise<void>;
+    };
+  }
+}
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('students');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -62,6 +71,24 @@ export default function App() {
   const [showLegalModal, setShowLegalModal] = useState<'kvkk' | 'terms' | null>(null);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [hasApiKey, setHasApiKey] = useState(true);
+
+  useEffect(() => {
+    const checkApiKey = async () => {
+      if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
+        const selected = await window.aistudio.hasSelectedApiKey();
+        setHasApiKey(selected);
+      }
+    };
+    checkApiKey();
+  }, []);
+
+  const handleOpenSelectKey = async () => {
+    if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
+      await window.aistudio.openSelectKey();
+      setHasApiKey(true); // Assume success after opening dialog
+    }
+  };
 
   useEffect(() => {
     if (activeTab === 'duel') {
@@ -196,180 +223,196 @@ export default function App() {
     );
   }
 
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-slate-900">
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="glass p-8 rounded-[2rem] w-full max-w-md space-y-8"
-        >
-          <div className="text-center space-y-2">
-            <div className="inline-block p-4 bg-primary rounded-3xl text-white mb-4">
-              <GraduationCap size={48} />
-            </div>
-            <h1 className="text-3xl font-black text-primary">Aysun Öğretmen</h1>
-            <p className="opacity-60 font-medium">Hoş geldiniz! Lütfen giriş yapın.</p>
-          </div>
-
-          {isForgotPassword ? (
-            <div className="space-y-6">
-              <div className="text-center space-y-2">
-                <h2 className="text-2xl font-bold text-primary">Şifremi Unuttum</h2>
-                <p className="text-sm text-slate-400">E-posta adresinizi girin, size bir sıfırlama bağlantısı gönderelim.</p>
+  return (
+    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col">
+      {!user ? (
+        <div className="flex-1 flex items-center justify-center p-6">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="glass p-8 rounded-[2rem] w-full max-w-md space-y-8"
+          >
+            <div className="text-center space-y-2">
+              <div className="inline-block p-4 bg-primary rounded-3xl text-white mb-4">
+                <GraduationCap size={48} />
               </div>
-              <form onSubmit={handleResetPassword} className="space-y-4">
-                <input
-                  type="email"
-                  placeholder="E-posta"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="input-field border-slate-700 bg-slate-800 text-white"
-                  required
-                />
-                {error && <p className="text-red-500 text-xs font-bold">{error}</p>}
-                {message && <p className="text-green-500 text-xs font-bold">{message}</p>}
-                <button type="submit" className="btn-primary w-full">
-                  Sıfırlama Bağlantısı Gönder
-                </button>
-              </form>
-              <button 
-                onClick={() => {
-                  setIsForgotPassword(false);
-                  setError('');
-                  setMessage('');
-                }}
-                className="w-full text-sm font-bold text-primary hover:underline"
-              >
-                Giriş Ekranına Dön
-              </button>
+              <h1 className="text-3xl font-black text-primary">Aysun Öğretmen</h1>
+              <p className="opacity-60 font-medium">Hoş geldiniz! Lütfen giriş yapın.</p>
             </div>
-          ) : (
-            <>
-              <form onSubmit={handleAuth} className="space-y-4">
-                {isSignUp && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <input
-                      type="text"
-                      placeholder="Adınız"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      className="input-field border-slate-700 bg-slate-800 text-white"
-                      required
-                    />
-                    <input
-                      type="text"
-                      placeholder="Soyadınız"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      className="input-field border-slate-700 bg-slate-800 text-white"
-                      required
-                    />
-                  </div>
-                )}
-                <input
-                  type="email"
-                  placeholder="E-posta"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="input-field border-slate-700 bg-slate-800 text-white"
-                  required
-                />
-                <input
-                  type="password"
-                  placeholder="Şifre"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="input-field border-slate-700 bg-slate-800 text-white"
-                  required
-                />
-                
-                {isSignUp && (
-                  <>
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold opacity-50 uppercase text-slate-400">Okuttuğunuz Sınıf Seviyesi</label>
-                      <select 
-                        value={signupGrade} 
-                        onChange={(e) => setSignupGrade(e.target.value)}
-                        className="input-field border-slate-700 bg-slate-800 text-white"
-                      >
-                        {[1, 2, 3, 4].map(n => <option key={n} value={n.toString()}>{n}. Sınıf</option>)}
-                      </select>
-                    </div>
 
-                    <div className="flex items-start gap-3 p-3 bg-slate-800/50 rounded-xl border border-slate-700">
-                      <input 
-                        type="checkbox" 
-                        id="terms"
-                        checked={agreedToTerms}
-                        onChange={(e) => setAgreedToTerms(e.target.checked)}
-                        className="mt-1 w-4 h-4 rounded border-slate-700 bg-slate-800 text-primary focus:ring-primary"
-                      />
-                      <label htmlFor="terms" className="text-xs text-slate-400 leading-relaxed">
-                        <button type="button" onClick={() => setShowLegalModal('terms')} className="text-primary hover:underline font-bold">Kullanıcı Sözleşmesi</button> ve <button type="button" onClick={() => setShowLegalModal('kvkk')} className="text-primary hover:underline font-bold">KVKK Aydınlatma Metni</button>'ni okudum, onaylıyorum.
-                      </label>
-                    </div>
-                  </>
-                )}
-
-                {error && <p className="text-red-500 text-xs font-bold">{error}</p>}
-                {message && <p className="text-green-500 text-xs font-bold">{message}</p>}
-                
-                <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2">
-                  {isSignUp ? <UserPlusIcon size={20} /> : <LogIn size={20} />}
-                  {isSignUp ? 'Kayıt Ol' : 'Giriş Yap'}
-                </button>
-              </form>
-
-              {!isSignUp && (
+            {isForgotPassword ? (
+              <div className="space-y-6">
+                <div className="text-center space-y-2">
+                  <h2 className="text-2xl font-bold text-primary">Şifremi Unuttum</h2>
+                  <p className="text-sm text-slate-400">E-posta adresinizi girin, size bir sıfırlama bağlantısı gönderelim.</p>
+                </div>
+                <form onSubmit={handleResetPassword} className="space-y-4">
+                  <input
+                    type="email"
+                    placeholder="E-posta"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="input-field border-slate-700 bg-slate-800 text-white"
+                    required
+                  />
+                  {error && <p className="text-red-500 text-xs font-bold">{error}</p>}
+                  {message && <p className="text-green-500 text-xs font-bold">{message}</p>}
+                  <button type="submit" className="btn-primary w-full">
+                    Sıfırlama Bağlantısı Gönder
+                  </button>
+                </form>
                 <button 
                   onClick={() => {
-                    setIsForgotPassword(true);
+                    setIsForgotPassword(false);
                     setError('');
                     setMessage('');
                   }}
-                  className="w-full text-xs font-bold text-slate-400 hover:text-primary transition-colors"
+                  className="w-full text-sm font-bold text-primary hover:underline"
                 >
-                  Şifremi Unuttum
+                  Giriş Ekranına Dön
                 </button>
-              )}
-
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-slate-700"></span>
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-slate-900 px-2 text-slate-500">Veya</span>
-                </div>
               </div>
+            ) : (
+              <>
+                <form onSubmit={handleAuth} className="space-y-4">
+                  {isSignUp && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <input
+                        type="text"
+                        placeholder="Adınız"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        className="input-field border-slate-700 bg-slate-800 text-white"
+                        required
+                      />
+                      <input
+                        type="text"
+                        placeholder="Soyadınız"
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        className="input-field border-slate-700 bg-slate-800 text-white"
+                        required
+                      />
+                    </div>
+                  )}
+                  <input
+                    type="email"
+                    placeholder="E-posta"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="input-field border-slate-700 bg-slate-800 text-white"
+                    required
+                  />
+                  <input
+                    type="password"
+                    placeholder="Şifre"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="input-field border-slate-700 bg-slate-800 text-white"
+                    required
+                  />
+                  
+                  {isSignUp && (
+                    <>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold opacity-50 uppercase text-slate-400">Okuttuğunuz Sınıf Seviyesi</label>
+                        <select 
+                          value={signupGrade} 
+                          onChange={(e) => setSignupGrade(e.target.value)}
+                          className="input-field border-slate-700 bg-slate-800 text-white"
+                        >
+                          {[1, 2, 3, 4].map(n => <option key={n} value={n.toString()}>{n}. Sınıf</option>)}
+                        </select>
+                      </div>
 
-              <button 
-                onClick={handleGoogleSignIn}
-                className="w-full py-3 px-4 bg-white text-slate-900 rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-slate-100 transition-all"
-              >
-                <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
-                Google ile Giriş Yap
-              </button>
+                      <div className="flex items-start gap-3 p-3 bg-slate-800/50 rounded-xl border border-slate-700">
+                        <input 
+                          type="checkbox" 
+                          id="terms"
+                          checked={agreedToTerms}
+                          onChange={(e) => setAgreedToTerms(e.target.checked)}
+                          className="mt-1 w-4 h-4 rounded border-slate-700 bg-slate-800 text-primary focus:ring-primary"
+                        />
+                        <label htmlFor="terms" className="text-xs text-slate-400 leading-relaxed">
+                          <span 
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setShowLegalModal('terms');
+                            }} 
+                            className="text-primary hover:underline font-bold cursor-pointer"
+                          >
+                            Kullanıcı Sözleşmesi
+                          </span> ve <span 
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setShowLegalModal('kvkk');
+                            }} 
+                            className="text-primary hover:underline font-bold cursor-pointer"
+                          >
+                            KVKK Aydınlatma Metni
+                          </span>'ni okudum, onaylıyorum.
+                        </label>
+                      </div>
+                    </>
+                  )}
 
-              <button 
-                onClick={() => {
-                  setIsSignUp(!isSignUp);
-                  setError('');
-                  setMessage('');
-                }}
-                className="w-full text-sm font-bold text-primary hover:underline"
-              >
-                {isSignUp ? 'Zaten hesabınız var mı? Giriş yapın' : 'Hesabınız yok mu? Kayıt olun'}
-              </button>
-            </>
-          )}
-        </motion.div>
-      </div>
-    );
-  }
+                  {error && <p className="text-red-500 text-xs font-bold">{error}</p>}
+                  {message && <p className="text-green-500 text-xs font-bold">{message}</p>}
+                  
+                  <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2">
+                    {isSignUp ? <UserPlusIcon size={20} /> : <LogIn size={20} />}
+                    {isSignUp ? 'Kayıt Ol' : 'Giriş Yap'}
+                  </button>
+                </form>
 
-  return (
-    <div className="min-h-screen flex flex-col bg-slate-900 overflow-x-hidden">
+                {!isSignUp && (
+                  <button 
+                    onClick={() => {
+                      setIsForgotPassword(true);
+                      setError('');
+                      setMessage('');
+                    }}
+                    className="w-full text-xs font-bold text-slate-400 hover:text-primary transition-colors"
+                  >
+                    Şifremi Unuttum
+                  </button>
+                )}
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-slate-700"></span>
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-slate-900 px-2 text-slate-500">Veya</span>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={handleGoogleSignIn}
+                  className="w-full py-3 px-4 bg-white text-slate-900 rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-slate-100 transition-all"
+                >
+                  <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
+                  Google ile Giriş Yap
+                </button>
+
+                <button 
+                  onClick={() => {
+                    setIsSignUp(!isSignUp);
+                    setError('');
+                    setMessage('');
+                  }}
+                  className="w-full text-sm font-bold text-primary hover:underline"
+                >
+                  {isSignUp ? 'Zaten hesabınız var mı? Giriş yapın' : 'Hesabınız yok mu? Kayıt olun'}
+                </button>
+              </>
+            )}
+          </motion.div>
+        </div>
+      ) : (
+        <div className="min-h-screen flex flex-col bg-slate-900 overflow-x-hidden">
       {/* Header */}
       <header className="glass sticky top-0 z-50 px-6 py-4 flex justify-between items-center bg-slate-800/80 border-b border-slate-700/20">
         <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setActiveTab('students')}>
@@ -403,6 +446,22 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      {/* API Key Selection Banner */}
+      {!hasApiKey && user && (
+        <div className="bg-amber-500/10 border-b border-amber-500/20 p-3 flex items-center justify-between mx-6 mt-4 rounded-2xl">
+          <div className="flex items-center gap-2 text-amber-500 text-sm">
+            <Sparkles className="w-4 h-4" />
+            <span>Görsel oluşturma özellikleri için bir API anahtarı seçmeniz gerekmektedir.</span>
+          </div>
+          <button
+            onClick={handleOpenSelectKey}
+            className="bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+          >
+            Anahtar Seç
+          </button>
+        </div>
+      )}
 
       <div className="flex-1 flex flex-col md:flex-row relative">
         {/* Sidebar / Navigation */}
@@ -464,9 +523,10 @@ export default function App() {
           </AnimatePresence>
         </main>
       </div>
+    </div>
+  )}
 
-      {/* Legal Modals */}
-      <AnimatePresence>
+  <AnimatePresence>
         {showLegalModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
             <motion.div 

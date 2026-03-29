@@ -1,11 +1,39 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+// Detect environment
+const IS_AI_STUDIO = window.location.hostname.includes('run.app') || window.location.hostname.includes('localhost');
+const GEMINI_API_KEY = (process.env as any).GEMINI_API_KEY || "";
+
+// Initialize SDK only if key is present (AI Studio mode)
+let ai: GoogleGenAI | null = null;
+if (GEMINI_API_KEY) {
+  ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+}
 
 // Helper for calling Gemini with fallback models
-async function callGeminiWithFallback(params: any, backupModel?: string) {
+async function callGeminiWithFallback(params: any, backupModel?: string): Promise<any> {
   try {
-    return await ai.models.generateContent(params);
+    // If we have a local key and are in AI Studio, use the SDK directly (Old Logic)
+    if (ai && IS_AI_STUDIO) {
+      const response = await ai.models.generateContent(params);
+      const candidates = response.candidates || [];
+      const parts = candidates[0]?.content?.parts || [];
+      return { text: response.text, parts };
+    }
+
+    // Otherwise, use the backend proxy (New Logic for Vercel)
+    const response = await fetch("/api/gemini/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ params }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `API Error: ${response.status}`);
+    }
+
+    return await response.json();
   } catch (error: any) {
     const isQuotaError = error.message?.includes('429') || 
                         error.message?.includes('quota') || 
@@ -13,9 +41,32 @@ async function callGeminiWithFallback(params: any, backupModel?: string) {
     
     if (isQuotaError && backupModel && params.model !== backupModel) {
       console.warn(`Quota exceeded for ${params.model}, trying backup model ${backupModel}`);
-      return await ai.models.generateContent({ ...params, model: backupModel });
+      return await callGeminiWithFallback({ ...params, model: backupModel });
     }
     throw error;
+  }
+}
+
+// Pollinations Fallback for Images
+async function generateImageWithPollinations(prompt: string): Promise<string | null> {
+  try {
+    const seed = Math.floor(Math.random() * 1000000);
+    const width = 1024;
+    const height = 1024;
+    // Pollinations API Key can be passed if available, but usually it's a public URL
+    // We'll use the public URL with the prompt
+    const encodedPrompt = encodeURIComponent(prompt);
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${seed}&nologo=true`;
+    
+    // Test if the image is accessible (optional but good for fallback)
+    const response = await fetch(imageUrl, { method: 'HEAD' });
+    if (response.ok) {
+      return imageUrl;
+    }
+    return null;
+  } catch (error) {
+    console.error("Pollinations Fallback Error:", error);
+    return null;
   }
 }
 
@@ -30,25 +81,24 @@ Soruların cevapları için kısa ve açıklayıcı bir "explanation" (açıklam
 export const geminiService = {
   generateQuestions: async (grade: string, subject: string, topic: string, type: string) => {
     try {
-      const response = await callGeminiWithFallback({
+      const data = await callGeminiWithFallback({
         model: "gemini-3-flash-preview",
         contents: `${grade}. sınıf ${subject} dersi, ${topic} konusu hakkında ${type} formatında sorular üret.`,
         config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
           responseMimeType: "application/json",
           responseSchema: {
-            type: Type.OBJECT,
+            type: "OBJECT",
             properties: {
-              title: { type: Type.STRING },
+              title: { type: "STRING" },
               questions: {
-                type: Type.ARRAY,
+                type: "ARRAY",
                 items: {
-                  type: Type.OBJECT,
+                  type: "OBJECT",
                   properties: {
-                    question: { type: Type.STRING },
-                    options: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    answer: { type: Type.STRING },
-                    explanation: { type: Type.STRING, description: "Doğru cevabın nedenini açıklayan kısa metin." }
+                    question: { type: "STRING" },
+                    options: { type: "ARRAY", items: { type: "STRING" } },
+                    answer: { type: "STRING" },
+                    explanation: { type: "STRING", description: "Doğru cevabın nedenini açıklayan kısa metin." }
                   },
                   required: ["question", "answer", "explanation"]
                 }
@@ -59,7 +109,7 @@ export const geminiService = {
         }
       }, "gemini-3.1-flash-lite-preview");
 
-      return JSON.parse(response.text);
+      return JSON.parse(data.text);
     } catch (error: any) {
       console.error("Generate Questions Error:", error);
       throw new Error("Sorular oluşturulurken bir hata oluştu. Lütfen daha sonra tekrar deneyin.");
@@ -69,26 +119,25 @@ export const geminiService = {
   generateStory: async (topic: string, questionCount: number, length: 'Kısa' | 'Orta' | 'Uzun') => {
     try {
       const lengthMap = { 'Kısa': 'yaklaşık 100 kelime', 'Orta': 'yaklaşık 300 kelime', 'Uzun': 'yaklaşık 600 kelime' };
-      const response = await callGeminiWithFallback({
+      const data = await callGeminiWithFallback({
         model: "gemini-3-flash-preview",
         contents: `${topic} konusu hakkında ilkokul seviyesinde ${lengthMap[length]} bir hikaye yaz and bu hikaye ile ilgili ${questionCount} adet okuma-anlama sorusu oluştur.`,
         config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
           responseMimeType: "application/json",
           responseSchema: {
-            type: Type.OBJECT,
+            type: "OBJECT",
             properties: {
-              title: { type: Type.STRING },
-              story: { type: Type.STRING },
-              summary: { type: Type.STRING, description: "Hikayenin görselleştirmesi için kısa bir sahne betimlemesi (İngilizce)." },
+              title: { type: "STRING" },
+              story: { type: "STRING" },
+              summary: { type: "STRING", description: "Hikayenin görselleştirmesi için kısa bir sahne betimlemesi (İngilizce)." },
               questions: {
-                type: Type.ARRAY,
+                type: "ARRAY",
                 items: {
-                  type: Type.OBJECT,
+                  type: "OBJECT",
                   properties: {
-                    question: { type: Type.STRING },
-                    answer: { type: Type.STRING },
-                    explanation: { type: Type.STRING, description: "Cevabın hikayedeki dayanağını açıklayan kısa metin." }
+                    question: { type: "STRING" },
+                    answer: { type: "STRING" },
+                    explanation: { type: "STRING", description: "Cevabın hikayedeki dayanağını açıklayan kısa metin." }
                   },
                   required: ["question", "answer", "explanation"]
                 }
@@ -99,7 +148,7 @@ export const geminiService = {
         }
       }, "gemini-3.1-flash-lite-preview");
 
-      return JSON.parse(response.text);
+      return JSON.parse(data.text);
     } catch (error: any) {
       console.error("Generate Story Error:", error);
       throw new Error("Hikaye oluşturulurken bir hata oluştu. Lütfen daha sonra tekrar deneyin.");
@@ -108,8 +157,7 @@ export const geminiService = {
 
   generateStoryImage: async (summary: string) => {
     try {
-      // Try primary image model
-      const response = await callGeminiWithFallback({
+      const data = await callGeminiWithFallback({
         model: 'gemini-2.5-flash-image',
         contents: {
           parts: [
@@ -124,14 +172,13 @@ export const geminiService = {
             imageSize: "1K"
           }
         },
-      }, 'gemini-3.1-flash-image-preview'); // Try 3.1 as backup
+      }, 'gemini-3.1-flash-image-preview');
       
-      if (!response.candidates?.[0]?.content?.parts) {
-        const safetyBlock = response.candidates?.[0]?.finishReason;
-        throw new Error(safetyBlock === 'SAFETY' ? "Güvenlik filtresi nedeniyle görsel oluşturulamadı." : "Görsel oluşturma yanıtı boş döndü.");
+      if (!data.parts) {
+        throw new Error("Görsel oluşturma yanıtı boş döndü.");
       }
 
-      for (const part of response.candidates[0].content.parts) {
+      for (const part of data.parts) {
         if (part.inlineData) {
           return `data:image/png;base64,${part.inlineData.data}`;
         }
@@ -140,14 +187,14 @@ export const geminiService = {
     } catch (error: any) {
       console.error("Gemini Image Error:", error);
       
-      // Final fallback to picsum if all AI models fail
       const isQuotaError = error.message?.includes('429') || 
                           error.message?.includes('quota') || 
                           error.message?.includes('RESOURCE_EXHAUSTED');
       
       if (isQuotaError) {
-        console.warn("All image models exhausted, returning null for image.");
-        return null;
+        console.warn("All Gemini image models exhausted, trying Pollinations fallback...");
+        const prompt = `A colorful, friendly, high-quality digital illustration for a children's storybook. Scene: ${summary}. Style: vibrant, cute, whimsical, professional illustration, no text.`;
+        return await generateImageWithPollinations(prompt);
       }
       
       throw new Error("Görsel oluşturulamadı.");
@@ -156,26 +203,25 @@ export const geminiService = {
 
   generateInstantQuestion: async (studentName: string) => {
     try {
-      const response = await callGeminiWithFallback({
+      const data = await callGeminiWithFallback({
         model: "gemini-3-flash-preview",
         contents: `${studentName} isimli öğrenci için rastgele, eğitici ve genel kültür/matematik/türkçe karışık bir ilkokul sorusu sor.`,
         config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
           responseMimeType: "application/json",
           responseSchema: {
-            type: Type.OBJECT,
+            type: "OBJECT",
             properties: {
-              question: { type: Type.STRING },
-              options: { type: Type.ARRAY, items: { type: Type.STRING } },
-              answer: { type: Type.STRING },
-              explanation: { type: Type.STRING }
+              question: { type: "STRING" },
+              options: { type: "ARRAY", items: { type: "STRING" } },
+              answer: { type: "STRING" },
+              explanation: { type: "STRING" }
             },
             required: ["question", "answer", "options", "explanation"]
           }
         }
       }, "gemini-3.1-flash-lite-preview");
 
-      return JSON.parse(response.text);
+      return JSON.parse(data.text);
     } catch (error: any) {
       console.error("Generate Instant Question Error:", error);
       throw new Error("Soru oluşturulurken bir hata oluştu.");
@@ -184,24 +230,23 @@ export const geminiService = {
 
   generateSpecialDayContent: async (day: string, type: 'Şiir' | 'Hikaye' | 'Etkinlik') => {
     try {
-      const response = await callGeminiWithFallback({
+      const data = await callGeminiWithFallback({
         model: "gemini-3-flash-preview",
         contents: `${day} özel günü için ilkokul seviyesinde bir ${type} üret.`,
         config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
           responseMimeType: "application/json",
           responseSchema: {
-            type: Type.OBJECT,
+            type: "OBJECT",
             properties: {
-              title: { type: Type.STRING },
-              content: { type: Type.STRING },
-              suggestions: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Öğretmenler için ek öneriler." }
+              title: { type: "STRING" },
+              content: { type: "STRING" },
+              suggestions: { type: "ARRAY", items: { type: "STRING" }, description: "Öğretmenler için ek öneriler." }
             },
             required: ["title", "content"]
           }
         }
       }, "gemini-3.1-flash-lite-preview");
-      return JSON.parse(response.text);
+      return JSON.parse(data.text);
     } catch (error: any) {
       console.error("Generate Special Day Error:", error);
       throw new Error("İçerik oluşturulurken bir hata oluştu.");
@@ -210,7 +255,7 @@ export const geminiService = {
 
   generateColoringPage: async (topic: string) => {
     try {
-      const response = await callGeminiWithFallback({
+      const data = await callGeminiWithFallback({
         model: 'gemini-2.5-flash-image',
         contents: {
           parts: [
@@ -227,11 +272,11 @@ export const geminiService = {
         },
       }, 'gemini-3.1-flash-image-preview');
       
-      if (!response.candidates?.[0]?.content?.parts) {
+      if (!data.parts) {
         throw new Error("Görsel oluşturulamadı.");
       }
 
-      for (const part of response.candidates[0].content.parts) {
+      for (const part of data.parts) {
         if (part.inlineData) {
           return `data:image/png;base64,${part.inlineData.data}`;
         }
@@ -240,14 +285,14 @@ export const geminiService = {
     } catch (error: any) {
       console.error("Coloring Page Error:", error);
       
-      // Fallback for coloring page
       const isQuotaError = error.message?.includes('429') || 
                           error.message?.includes('quota') || 
                           error.message?.includes('RESOURCE_EXHAUSTED');
       
       if (isQuotaError) {
-        console.warn("All image models exhausted for coloring page, returning null.");
-        return null;
+        console.warn("All Gemini image models exhausted for coloring page, trying Pollinations fallback...");
+        const prompt = `A simple, high-quality black and white line art coloring page for kids about ${topic}. No shading, clean outlines, white background.`;
+        return await generateImageWithPollinations(prompt);
       }
       
       throw new Error("Boyama sayfası oluşturulamadı.");
@@ -256,25 +301,24 @@ export const geminiService = {
 
   generateDuelQuestion: async (grade: string, subject: string, topic: string) => {
     try {
-      const response = await callGeminiWithFallback({
+      const data = await callGeminiWithFallback({
         model: "gemini-3-flash-preview",
         contents: `${grade}. sınıf ${subject} dersi, ${topic} konusu hakkında 2 öğrencinin yarışabileceği, hızlı cevaplanabilecek 3 şıklı bir test sorusu üret. (Rastgelelik ID: ${Math.random().toString(36).substring(7)})`,
         config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
           responseMimeType: "application/json",
           responseSchema: {
-            type: Type.OBJECT,
+            type: "OBJECT",
             properties: {
-              question: { type: Type.STRING },
-              options: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Tam olarak 3 şık olmalı." },
-              answer: { type: Type.STRING },
-              explanation: { type: Type.STRING }
+              question: { type: "STRING" },
+              options: { type: "ARRAY", items: { type: "STRING" }, description: "Tam olarak 3 şık olmalı." },
+              answer: { type: "STRING" },
+              explanation: { type: "STRING" }
             },
             required: ["question", "options", "answer", "explanation"]
           }
         }
       }, "gemini-3.1-flash-lite-preview");
-      return JSON.parse(response.text);
+      return JSON.parse(data.text);
     } catch (error: any) {
       console.error("Generate Duel Question Error:", error);
       throw new Error("Düello sorusu oluşturulurken bir hata oluştu.");
@@ -283,25 +327,24 @@ export const geminiService = {
 
   generateWeeklyResearch: async (grade: string) => {
     try {
-      const response = await callGeminiWithFallback({
+      const data = await callGeminiWithFallback({
         model: "gemini-3-flash-preview",
         contents: `${grade}. sınıf ilkokul öğrencileri için bu hafta araştırılabilecek, çocukların hayal gücünü zorlayan, doğa, uzay, hayvanlar alemi veya ilginç icatlar gibi çok ilgi çekici ve öğretici bir konu belirle. Ayrıca bu konuyla ilgili çocukların izleyebileceği bir video materyal önerisi (YouTube araması için anahtar kelimeler) ekle.`,
         config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
           responseMimeType: "application/json",
           responseSchema: {
-            type: Type.OBJECT,
+            type: "OBJECT",
             properties: {
-              topic: { type: Type.STRING },
-              description: { type: Type.STRING },
-              researchQuestions: { type: Type.ARRAY, items: { type: Type.STRING } },
-              videoSearchKeywords: { type: Type.STRING }
+              topic: { type: "STRING" },
+              description: { type: "STRING" },
+              researchQuestions: { type: "ARRAY", items: { type: "STRING" } },
+              videoSearchKeywords: { type: "STRING" }
             },
             required: ["topic", "description", "researchQuestions", "videoSearchKeywords"]
           }
         }
       }, "gemini-3.1-flash-lite-preview");
-      return JSON.parse(response.text);
+      return JSON.parse(data.text);
     } catch (error: any) {
       console.error("Generate Weekly Research Error:", error);
       throw new Error("Haftalık araştırma konusu oluşturulurken bir hata oluştu.");
