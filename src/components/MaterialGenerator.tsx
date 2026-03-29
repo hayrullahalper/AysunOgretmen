@@ -75,6 +75,18 @@ export default function MaterialGenerator() {
 
   return (
     <div className="space-y-6">
+      {result && (
+        <ConfirmModal
+          isOpen={showConfirmSave}
+          title="Materyali Kaydet"
+          message={`"${result.title}" başlıklı materyali kayıtlı materyallerinize eklemek istiyor musunuz?`}
+          confirmText="Kaydet"
+          cancelText="Vazgeç"
+          onConfirm={handleSave}
+          onCancel={() => setShowConfirmSave(false)}
+          variant="success"
+        />
+      )}
       <div className="glass p-6 rounded-3xl border-slate-700 shadow-sm bg-slate-800/70">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold flex items-center gap-2 text-primary">
@@ -217,16 +229,6 @@ export default function MaterialGenerator() {
           animate={{ opacity: 1, y: 0 }}
           className="glass p-8 rounded-3xl border-slate-700 shadow-lg bg-slate-800/80"
         >
-          <ConfirmModal
-            isOpen={showConfirmSave}
-            title="Materyali Kaydet"
-            message={`"${result.title}" başlıklı materyali kayıtlı materyallerinize eklemek istiyor musunuz?`}
-            confirmText="Kaydet"
-            cancelText="Vazgeç"
-            onConfirm={handleSave}
-            onCancel={() => setShowConfirmSave(false)}
-            variant="success"
-          />
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 px-4">
             <h3 className="text-2xl font-bold text-slate-100">{result.title}</h3>
             <div className="flex gap-4 w-full sm:w-auto">

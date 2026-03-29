@@ -83,6 +83,18 @@ export default function StoryFactory() {
 
   return (
     <div className="space-y-6">
+      {result && (
+        <ConfirmModal
+          isOpen={showConfirmSave}
+          title="Hikayeyi Kaydet"
+          message={`"${result.title}" başlıklı hikayeyi kayıtlı materyallerinize eklemek istiyor musunuz?`}
+          confirmText="Kaydet"
+          cancelText="Vazgeç"
+          onConfirm={handleSave}
+          onCancel={() => setShowConfirmSave(false)}
+          variant="success"
+        />
+      )}
       <div className="glass p-6 rounded-3xl bg-slate-800/70 border-slate-700 shadow-sm">
         <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-primary">
           <BookOpen className="text-primary" /> Hikaye Fabrikası
@@ -142,16 +154,6 @@ export default function StoryFactory() {
           animate={{ opacity: 1, scale: 1 }}
           className="glass p-8 rounded-3xl bg-slate-800/80 border-slate-700 shadow-lg"
         >
-          <ConfirmModal
-            isOpen={showConfirmSave}
-            title="Hikayeyi Kaydet"
-            message={`"${result.title}" başlıklı hikayeyi kayıtlı materyallerinize eklemek istiyor musunuz?`}
-            confirmText="Kaydet"
-            cancelText="Vazgeç"
-            onConfirm={handleSave}
-            onCancel={() => setShowConfirmSave(false)}
-            variant="success"
-          />
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 px-4">
             <h3 className="text-2xl font-bold text-slate-100">{result.title}</h3>
             <div className="flex gap-4 w-full sm:w-auto">

@@ -22,7 +22,7 @@ export interface Material {
   id: string;
   title: string;
   content: any;
-  type: 'quiz' | 'story';
+  type: 'quiz' | 'story' | 'research';
   createdAt: string;
   ownerId: string;
 }

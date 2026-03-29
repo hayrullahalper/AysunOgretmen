@@ -20,7 +20,7 @@
         "id": { "type": "string" },
         "title": { "type": "string" },
         "content": { "type": "string" },
-        "type": { "type": "string", "enum": ["quiz", "story"] },
+        "type": { "type": "string", "enum": ["quiz", "story", "research"] },
         "createdAt": { "type": "string" },
         "ownerId": { "type": "string" }
       },

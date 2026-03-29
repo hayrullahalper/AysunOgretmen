@@ -341,7 +341,7 @@ export const geminiService = {
     try {
       const data = await callGeminiWithFallback({
         model: "gemini-3-flash-preview",
-        contents: `${grade}. sınıf ilkokul öğrencileri için bu hafta araştırılabilecek, çocukların hayal gücünü zorlayan, doğa, uzay, hayvanlar alemi veya ilginç icatlar gibi çok ilgi çekici ve öğretici bir konu belirle. Ayrıca bu konuyla ilgili çocukların izleyebileceği bir video materyal önerisi (YouTube araması için anahtar kelimeler) ekle.`,
+        contents: `${grade}. sınıf ilkokul öğrencileri için bu hafta araştırılabilecek, çocukların hayal gücünü zorlayan, doğa, uzay, hayvanlar alemi veya ilginç icatlar gibi çok ilgi çekici ve öğretici bir konu belirle. Konu her seferinde farklı ve özgün olmalı. (Rastgelelik ID: ${Math.random().toString(36).substring(7)}) Ayrıca bu konuyla ilgili çocukların izleyebileceği bir video materyal önerisi (YouTube araması için anahtar kelimeler) ekle. Araştırma sorularının her biri için kısa ve öğretici cevaplar da üret.`,
         config: {
           responseMimeType: "application/json",
           responseSchema: {
@@ -349,7 +349,17 @@ export const geminiService = {
             properties: {
               topic: { type: "STRING" },
               description: { type: "STRING" },
-              researchQuestions: { type: "ARRAY", items: { type: "STRING" } },
+              researchQuestions: { 
+                type: "ARRAY", 
+                items: { 
+                  type: "OBJECT",
+                  properties: {
+                    question: { type: "STRING" },
+                    answer: { type: "STRING" }
+                  },
+                  required: ["question", "answer"]
+                } 
+              },
               videoSearchKeywords: { type: "STRING" }
             },
             required: ["topic", "description", "researchQuestions", "videoSearchKeywords"]
