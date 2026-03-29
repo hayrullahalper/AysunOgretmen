@@ -230,12 +230,7 @@ export default function StoryFactory() {
               <p className="text-slate-400 font-bold">Hikaye Görseli Hazırlanıyor...</p>
             </div>
           ) : imageError ? (
-            <div className="w-full aspect-video bg-slate-800/50 rounded-3xl border border-red-900/50 flex flex-col items-center justify-center gap-4 mb-8 p-6 text-center">
-              <XCircle className="text-red-500" size={48} />
-              <div>
-                <p className="text-red-400 font-bold">Görsel Oluşturulamadı</p>
-                <p className="text-slate-400 text-sm mt-1">{imageError}</p>
-              </div>
+            <div className="flex justify-center mb-6">
               <button 
                 onClick={async () => {
                   setImageLoading(true);
@@ -253,9 +248,9 @@ export default function StoryFactory() {
                     setImageLoading(false);
                   }
                 }}
-                className="mt-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-xs font-bold transition-colors"
+                className="text-xs text-slate-500 hover:text-primary transition-colors flex items-center gap-1"
               >
-                Tekrar Dene
+                Görsel oluşturulamadı. Tekrar denemek için tıklayın.
               </button>
             </div>
           ) : result.image && (
