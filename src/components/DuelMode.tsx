@@ -3,9 +3,12 @@ import { firestoreService, Student } from '../lib/firestore';
 import { geminiService } from '../lib/gemini';
 import { Swords, RotateCw, Trophy, Sparkles, Loader2, CheckCircle2, XCircle, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useStudents } from '../hooks/useStudents';
+import { useSettings } from '../hooks/useSettings';
 
 export default function DuelMode() {
-  const [students, setStudents] = useState<Student[]>([]);
+  const { students } = useStudents();
+  const { settings } = useSettings();
   const [duelists, setDuelists] = useState<[Student, Student] | null>(null);
   const [tempDuelists, setTempDuelists] = useState<[Student, Student] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -20,14 +23,10 @@ export default function DuelMode() {
   const [topic, setTopic] = useState('Karışık');
 
   useEffect(() => {
-    const unsubscribe = firestoreService.getStudents(setStudents);
-    const loadSettings = async () => {
-      const settings = await firestoreService.getSettings();
-      if (settings) setGrade(settings.defaultGrade);
-    };
-    loadSettings();
-    return () => unsubscribe();
-  }, []);
+    if (settings) {
+      setGrade(settings.defaultGrade);
+    }
+  }, [settings]);
 
   const generateNewQuestion = useCallback(async () => {
     setLoading(true);

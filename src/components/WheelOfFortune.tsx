@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { firestoreService, Student } from '../lib/firestore';
+import { firestoreService } from '../lib/firestore';
 import { geminiService } from '../lib/gemini';
 import { RotateCw, Trophy, Sparkles, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Wheel } from 'react-custom-roulette';
+import { useStudents } from '../hooks/useStudents';
+import { useSettings } from '../hooks/useSettings';
 
 const MemoizedWheel = React.memo(({ mustSpin, prizeNumber, data, onStopSpinning }: any) => (
   <Wheel
@@ -25,10 +27,11 @@ const MemoizedWheel = React.memo(({ mustSpin, prizeNumber, data, onStopSpinning 
 ));
 
 export default function WheelOfFortune() {
-  const [students, setStudents] = useState<Student[]>([]);
+  const { students } = useStudents();
+  const { settings } = useSettings();
   const [mustSpin, setMustSpin] = useState(false);
   const [prizeNumber, setPrizeNumber] = useState(0);
-  const [winner, setWinner] = useState<Student | null>(null);
+  const [winner, setWinner] = useState<any>(null);
   const [question, setQuestion] = useState<any>(null);
   const [loadingQuestion, setLoadingQuestion] = useState(false);
   const [userAnswer, setUserAnswer] = useState<string | null>(null);
@@ -40,14 +43,10 @@ export default function WheelOfFortune() {
   const [topic, setTopic] = useState('Karışık');
 
   useEffect(() => {
-    const unsubscribe = firestoreService.getStudents(setStudents);
-    const loadSettings = async () => {
-      const settings = await firestoreService.getSettings();
-      if (settings) setGrade(settings.defaultGrade);
-    };
-    loadSettings();
-    return () => unsubscribe();
-  }, []);
+    if (settings) {
+      setGrade(settings.defaultGrade);
+    }
+  }, [settings]);
 
   // Auto scroll to question when winner is selected
   useEffect(() => {

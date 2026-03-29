@@ -60,6 +60,17 @@ export const firestoreService = {
       firestoreService.handleError(error, 'list', 'students');
     });
   },
+  getStudentsOnce: async (): Promise<Student[]> => {
+    if (!auth.currentUser) return [];
+    try {
+      const q = query(collection(db, 'students'), where('ownerId', '==', auth.currentUser.uid));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => doc.data() as Student);
+    } catch (error) {
+      firestoreService.handleError(error, 'get', 'students');
+      return [];
+    }
+  },
   saveStudent: async (student: Student) => {
     if (!auth.currentUser) return;
     const data = { ...student, ownerId: auth.currentUser.uid };

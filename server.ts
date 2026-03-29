@@ -23,6 +23,9 @@ async function startServer() {
   // API Routes
   app.post("/api/gemini/generate", async (req, res) => {
     try {
+      if (!req.body || !req.body.params) {
+        return res.status(400).json({ error: "Missing params in request body" });
+      }
       const { params } = req.body;
       
       // Use the most up-to-date API key from the environment
@@ -43,16 +46,24 @@ async function startServer() {
 
       const response = await aiInstance.models.generateContent(params);
       
+      // Safe text extraction
+      let text = "";
+      try {
+        text = response.text;
+      } catch (e) {
+        console.warn("Could not get text from response:", e);
+      }
+
       // Handle multimodal response (images)
       const candidates = response.candidates || [];
       const parts = candidates[0]?.content?.parts || [];
       
-      res.json({ text: response.text, parts });
+      res.json({ text, parts });
     } catch (error: any) {
       console.error("Gemini API Error:", error);
       const status = error.message?.includes('429') ? 429 : 
                      (error.message?.includes('API key not valid') || error.message?.includes('400')) ? 401 : 500;
-      res.status(status).json({ error: error.message });
+      res.status(status).json({ error: error.message || "Internal Server Error", details: error.details || [] });
     }
   });
 

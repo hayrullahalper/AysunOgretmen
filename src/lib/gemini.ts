@@ -16,9 +16,17 @@ async function callGeminiWithFallback(params: any, backupModel?: string): Promis
     // If we have a local key and are in AI Studio, use the SDK directly (Old Logic)
     if (ai && IS_AI_STUDIO) {
       const response = await ai.models.generateContent(params);
+      
+      let text = "";
+      try {
+        text = response.text;
+      } catch (e) {
+        console.warn("Could not get text from response:", e);
+      }
+
       const candidates = response.candidates || [];
       const parts = candidates[0]?.content?.parts || [];
-      return { text: response.text, parts };
+      return { text, parts };
     }
 
     // Otherwise, use the backend proxy (New Logic for Vercel)

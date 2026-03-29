@@ -4,8 +4,10 @@ import { firestoreService } from '../lib/firestore';
 import { exportToPDF } from '../lib/pdf';
 import { Sparkles, Download, Save, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useSettings } from '../hooks/useSettings';
 
 export default function MaterialGenerator() {
+  const { settings } = useSettings();
   const [grade, setGrade] = useState('1');
   const [subject, setSubject] = useState('Matematik');
   const [topic, setTopic] = useState('');
@@ -19,14 +21,10 @@ export default function MaterialGenerator() {
   const [userAnswers, setUserAnswers] = useState<Record<number, string>>({});
 
   useEffect(() => {
-    const loadSettings = async () => {
-      const settings = await firestoreService.getSettings();
-      if (settings) {
-        setGrade(settings.defaultGrade);
-      }
-    };
-    loadSettings();
-  }, []);
+    if (settings) {
+      setGrade(settings.defaultGrade);
+    }
+  }, [settings]);
 
   const handleGenerate = async () => {
     if (useCustomRequest && !customRequest) return;

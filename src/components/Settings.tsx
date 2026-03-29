@@ -2,37 +2,37 @@ import React, { useState, useEffect } from 'react';
 import { firestoreService, UserSettings } from '../lib/firestore';
 import { Save, Settings as SettingsIcon, User } from 'lucide-react';
 import { auth } from '../firebase';
+import { useSettings } from '../hooks/useSettings';
 
 export default function Settings() {
+  const { settings, updateSettings, loading: settingsLoading } = useSettings();
   const [defaultGrade, setDefaultGrade] = useState('1');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const loadData = async () => {
+    if (settings) {
+      setDefaultGrade(settings.defaultGrade);
+    }
+    
+    const loadUser = async () => {
       if (!auth.currentUser) return;
-      
-      const settings = await firestoreService.getSettings();
-      if (settings) {
-        setDefaultGrade(settings.defaultGrade);
-      }
-
       const user = await firestoreService.getUser(auth.currentUser.uid);
       if (user) {
         setFirstName(user.firstName || '');
         setLastName(user.lastName || '');
       }
     };
-    loadData();
-  }, []);
+    loadUser();
+  }, [settings]);
 
   const handleSave = async () => {
     if (!auth.currentUser) return;
     setLoading(true);
     try {
-      // Save settings
-      await firestoreService.saveSettings({
+      // Save settings using hook
+      await updateSettings({
         defaultGrade,
         ownerId: auth.currentUser.uid
       });

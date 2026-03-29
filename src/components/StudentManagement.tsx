@@ -1,17 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { firestoreService, Student } from '../lib/firestore';
 import { UserPlus, Trash2, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useStudents } from '../hooks/useStudents';
 
 export default function StudentManagement() {
-  const [students, setStudents] = useState<Student[]>([]);
+  const { students, refresh } = useStudents();
   const [name, setName] = useState('');
   const [surname, setSurname] = useState('');
-
-  useEffect(() => {
-    const unsubscribe = firestoreService.getStudents(setStudents);
-    return () => unsubscribe();
-  }, []);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,12 +26,16 @@ export default function StudentManagement() {
     };
     
     await firestoreService.saveStudent(newStudent);
+    await refresh();
     setName('');
     setSurname('');
   };
 
   const handleDelete = async (id: string) => {
-    await firestoreService.deleteStudent(id);
+    if (confirm('Bu öğrenciyi silmek istediğinize emin misiniz?')) {
+      await firestoreService.deleteStudent(id);
+      await refresh();
+    }
   };
 
   return (

@@ -1,15 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { geminiService } from '../lib/gemini';
 import { firestoreService } from '../lib/firestore';
 import { Search, Youtube, Sparkles, Loader2, BookOpen, ExternalLink, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useSettings } from '../hooks/useSettings';
 
 export default function WeeklyResearch() {
+  const { settings } = useSettings();
   const [loading, setLoading] = useState(false);
   const [research, setResearch] = useState<any>(null);
   const [grade, setGrade] = useState('1');
 
-  const generateResearch = async (currentGrade?: string) => {
+  const generateResearch = useCallback(async (currentGrade?: string) => {
     setLoading(true);
     setResearch(null);
     try {
@@ -21,20 +23,16 @@ export default function WeeklyResearch() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [grade]);
 
   useEffect(() => {
-    const loadSettings = async () => {
-      const settings = await firestoreService.getSettings();
-      if (settings) {
-        setGrade(settings.defaultGrade);
-        generateResearch(settings.defaultGrade);
-      } else {
-        generateResearch('1');
-      }
-    };
-    loadSettings();
-  }, []);
+    if (settings) {
+      setGrade(settings.defaultGrade);
+      generateResearch(settings.defaultGrade);
+    } else {
+      generateResearch('1');
+    }
+  }, [settings]);
 
   return (
     <div className="space-y-6">
