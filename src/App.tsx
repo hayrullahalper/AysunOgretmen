@@ -55,7 +55,11 @@ export default function App() {
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [signupGrade, setSignupGrade] = useState('1');
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [showLegalModal, setShowLegalModal] = useState<'kvkk' | 'terms' | null>(null);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
@@ -78,6 +82,16 @@ export default function App() {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (isSignUp) {
+      if (!firstName || !lastName) {
+        setError('Lütfen adınızı ve soyadınızı girin.');
+        return;
+      }
+      if (!agreedToTerms) {
+        setError('Lütfen kullanıcı sözleşmesini ve KVKK metnini onaylayın.');
+        return;
+      }
+    }
     try {
       if (isSignUp) {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -85,7 +99,9 @@ export default function App() {
           uid: userCredential.user.uid,
           email: userCredential.user.email || '',
           role: 'user',
-          grade: signupGrade
+          grade: signupGrade,
+          firstName,
+          lastName
         });
         await firestoreService.saveSettings({
           defaultGrade: signupGrade,
@@ -100,6 +116,10 @@ export default function App() {
   };
 
   const handleGoogleSignIn = async () => {
+    if (isSignUp && !agreedToTerms) {
+      setError('Lütfen kullanıcı sözleşmesini ve KVKK metnini onaylayın.');
+      return;
+    }
     setError('');
     try {
       if (!auth) {
@@ -110,11 +130,18 @@ export default function App() {
         throw new Error('Google Auth Provider could not be created.');
       }
       const result = await signInWithPopup(auth, provider);
-      await firestoreService.saveUser({
-        uid: result.user.uid,
-        email: result.user.email || '',
-        role: 'user'
-      });
+      
+      // Check if user already exists to avoid overwriting name/surname if they already set it
+      const existingSettings = await firestoreService.getSettings();
+      if (!existingSettings) {
+        await firestoreService.saveUser({
+          uid: result.user.uid,
+          email: result.user.email || '',
+          role: 'user',
+          firstName: result.user.displayName?.split(' ')[0] || '',
+          lastName: result.user.displayName?.split(' ').slice(1).join(' ') || ''
+        });
+      }
     } catch (err: any) {
       console.error("Google Sign-In Error:", err);
       if (err.code === 'auth/argument-error') {
@@ -220,6 +247,26 @@ export default function App() {
           ) : (
             <>
               <form onSubmit={handleAuth} className="space-y-4">
+                {isSignUp && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <input
+                      type="text"
+                      placeholder="Adınız"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      className="input-field border-slate-700 bg-slate-800 text-white"
+                      required
+                    />
+                    <input
+                      type="text"
+                      placeholder="Soyadınız"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      className="input-field border-slate-700 bg-slate-800 text-white"
+                      required
+                    />
+                  </div>
+                )}
                 <input
                   type="email"
                   placeholder="E-posta"
@@ -238,16 +285,31 @@ export default function App() {
                 />
                 
                 {isSignUp && (
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold opacity-50 uppercase text-slate-400">Okuttuğunuz Sınıf Seviyesi</label>
-                    <select 
-                      value={signupGrade} 
-                      onChange={(e) => setSignupGrade(e.target.value)}
-                      className="input-field border-slate-700 bg-slate-800 text-white"
-                    >
-                      {[1, 2, 3, 4].map(n => <option key={n} value={n.toString()}>{n}. Sınıf</option>)}
-                    </select>
-                  </div>
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold opacity-50 uppercase text-slate-400">Okuttuğunuz Sınıf Seviyesi</label>
+                      <select 
+                        value={signupGrade} 
+                        onChange={(e) => setSignupGrade(e.target.value)}
+                        className="input-field border-slate-700 bg-slate-800 text-white"
+                      >
+                        {[1, 2, 3, 4].map(n => <option key={n} value={n.toString()}>{n}. Sınıf</option>)}
+                      </select>
+                    </div>
+
+                    <div className="flex items-start gap-3 p-3 bg-slate-800/50 rounded-xl border border-slate-700">
+                      <input 
+                        type="checkbox" 
+                        id="terms"
+                        checked={agreedToTerms}
+                        onChange={(e) => setAgreedToTerms(e.target.checked)}
+                        className="mt-1 w-4 h-4 rounded border-slate-700 bg-slate-800 text-primary focus:ring-primary"
+                      />
+                      <label htmlFor="terms" className="text-xs text-slate-400 leading-relaxed">
+                        <button type="button" onClick={() => setShowLegalModal('terms')} className="text-primary hover:underline font-bold">Kullanıcı Sözleşmesi</button> ve <button type="button" onClick={() => setShowLegalModal('kvkk')} className="text-primary hover:underline font-bold">KVKK Aydınlatma Metni</button>'ni okudum, onaylıyorum.
+                      </label>
+                    </div>
+                  </>
                 )}
 
                 {error && <p className="text-red-500 text-xs font-bold">{error}</p>}
@@ -402,6 +464,74 @@ export default function App() {
           </AnimatePresence>
         </main>
       </div>
+
+      {/* Legal Modals */}
+      <AnimatePresence>
+        {showLegalModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="glass p-8 rounded-[2rem] w-full max-w-2xl max-h-[80vh] overflow-y-auto bg-slate-800 border-slate-700 space-y-6"
+            >
+              <div className="flex justify-between items-center sticky top-0 bg-slate-800 py-2 border-b border-slate-700 mb-4">
+                <h3 className="text-2xl font-black text-primary">
+                  {showLegalModal === 'kvkk' ? 'KVKK Aydınlatma Metni' : 'Kullanıcı Sözleşmesi'}
+                </h3>
+                <button onClick={() => setShowLegalModal(null)} className="p-2 hover:bg-slate-700 rounded-full text-slate-400">
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="prose prose-invert prose-sm max-w-none text-slate-300 leading-relaxed">
+                {showLegalModal === 'kvkk' ? (
+                  <>
+                    <h4>1. Veri Sorumlusu</h4>
+                    <p>Aysun Öğretmen platformu olarak, kişisel verilerinizin güvenliği hususuna azami hassasiyet göstermekteyiz. Bu kapsamda, 6698 sayılı Kişisel Verilerin Korunması Kanunu (“KVKK”) uyarınca veri sorumlusu sıfatıyla hareket etmekteyiz.</p>
+                    
+                    <h4>2. İşlenen Kişisel Verileriniz</h4>
+                    <p>Platformumuza kayıt olmanız durumunda; adınız, soyadınız, e-posta adresiniz, okuttuğunuz sınıf seviyesi ve kullanım tercihleriniz işlenmektedir. Google ile giriş yapmanız durumunda Google profilinizden sağlanan bilgiler (ad, soyad, e-posta, profil fotoğrafı) işlenmektedir.</p>
+                    
+                    <h4>3. Kişisel Verilerin İşlenme Amacı</h4>
+                    <p>Kişisel verileriniz; platform hizmetlerinin sunulması, kullanıcı deneyiminin iyileştirilmesi, eğitim materyallerinin kişiselleştirilmesi ve yasal yükümlülüklerin yerine getirilmesi amaçlarıyla işlenmektedir.</p>
+                    
+                    <h4>4. Verilerin Aktarılması</h4>
+                    <p>Kişisel verileriniz, yasal zorunluluklar haricinde üçüncü şahıslarla paylaşılmamaktadır. Verileriniz güvenli bulut sunucularında (Firebase/Google Cloud) muhafaza edilmektedir.</p>
+                    
+                    <h4>5. Haklarınız</h4>
+                    <p>KVKK’nın 11. maddesi uyarınca; verilerinizin işlenip işlenmediğini öğrenme, işlenmişse bilgi talep etme, düzeltilmesini veya silinmesini isteme haklarına sahipsiniz.</p>
+                  </>
+                ) : (
+                  <>
+                    <h4>1. Taraflar</h4>
+                    <p>İşbu sözleşme, Aysun Öğretmen platformu ile platforma kayıt olan kullanıcı arasında akdedilmiştir.</p>
+                    
+                    <h4>2. Hizmetin Kapsamı</h4>
+                    <p>Aysun Öğretmen, öğretmenlere yönelik yapay zeka destekli eğitim materyali üretim asistanıdır. Sunulan içerikler yapay zeka tarafından üretilmekte olup, doğruluk kontrolü kullanıcının sorumluluğundadır.</p>
+                    
+                    <h4>3. Kullanım Şartları</h4>
+                    <p>Kullanıcı, platformu yasalara ve ahlaka uygun şekilde kullanmayı taahhüt eder. Üretilen içeriklerin ticari amaçla toplu satışı yasaktır.</p>
+                    
+                    <h4>4. Sorumluluk Sınırı</h4>
+                    <p>Yapay zeka tarafından üretilen içeriklerdeki hatalardan veya bu içeriklerin kullanımından doğabilecek doğrudan/dolaylı zararlardan Aysun Öğretmen sorumlu tutulamaz.</p>
+                    
+                    <h4>5. Fikri Mülkiyet</h4>
+                    <p>Platform tasarımı ve yazılımı Aysun Öğretmen'e aittir. Kullanıcıya sunulan içeriklerin kullanım hakkı kullanıcıya aittir.</p>
+                  </>
+                )}
+              </div>
+
+              <button 
+                onClick={() => setShowLegalModal(null)}
+                className="btn-primary w-full py-4 mt-6"
+              >
+                Anladım
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Footer */}
       <footer className="p-6 text-center text-sm opacity-50 font-medium">

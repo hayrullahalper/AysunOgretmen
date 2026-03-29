@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
-export const exportToPDF = async (title: string, content: any, type: 'quiz' | 'story') => {
+export const exportToPDF = async (title: string, content: any, type: 'quiz' | 'story', options: { includeImage?: boolean } = {}) => {
   const pdf = new jsPDF('p', 'mm', 'a4');
   const pdfWidth = pdf.internal.pageSize.getWidth();
   const pdfHeight = pdf.internal.pageSize.getHeight();
@@ -69,8 +69,9 @@ export const exportToPDF = async (title: string, content: any, type: 'quiz' | 's
   await addBlockToPDF(createEl(headerHtml));
 
   if (type === 'story') {
+    const showImage = options.includeImage !== false && content.image;
     const storyHtml = `
-      ${content.image ? `<img src="${content.image}" style="width: 100%; border-radius: 12px; margin-bottom: 25px; border: 1px solid #e2e8f0;" />` : ''}
+      ${showImage ? `<img src="${content.image}" style="width: 100%; border-radius: 12px; margin-bottom: 25px; border: 1px solid #e2e8f0;" />` : ''}
       <div class="story-text">
         ${content.story.replace(/\n/g, '<br>')}
       </div>

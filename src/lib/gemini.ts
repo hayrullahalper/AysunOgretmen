@@ -146,8 +146,8 @@ export const geminiService = {
                           error.message?.includes('RESOURCE_EXHAUSTED');
       
       if (isQuotaError) {
-        console.warn("All image models exhausted, using fallback image.");
-        return `https://picsum.photos/seed/${encodeURIComponent(summary.substring(0, 20))}/1024/576`;
+        console.warn("All image models exhausted, returning null for image.");
+        return null;
       }
       
       throw new Error("Görsel oluşturulamadı.");
@@ -246,8 +246,8 @@ export const geminiService = {
                           error.message?.includes('RESOURCE_EXHAUSTED');
       
       if (isQuotaError) {
-        console.warn("All image models exhausted for coloring page, using fallback.");
-        return `https://picsum.photos/seed/${encodeURIComponent(topic.substring(0, 20))}/1024/1024?grayscale`;
+        console.warn("All image models exhausted for coloring page, returning null.");
+        return null;
       }
       
       throw new Error("Boyama sayfası oluşturulamadı.");

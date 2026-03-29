@@ -3,7 +3,7 @@ import { geminiService } from '../lib/gemini';
 import { firestoreService } from '../lib/firestore';
 import { exportToPDF } from '../lib/pdf';
 import { BookOpen, Sparkles, Download, Save, Loader2, Book, XCircle } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 
 export default function StoryFactory() {
   const [topic, setTopic] = useState('');
@@ -13,7 +13,7 @@ export default function StoryFactory() {
   const [imageLoading, setImageLoading] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
   const [result, setResult] = useState<any>(null);
-  const [storyImage, setStoryImage] = useState<string | null>(null);
+  const [showPdfDialog, setShowPdfDialog] = useState(false);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -27,7 +27,6 @@ export default function StoryFactory() {
     if (!topic) return;
     setLoading(true);
     setResult(null);
-    setStoryImage(null);
     setImageError(null);
     try {
       const data = await geminiService.generateStory(topic, questionCount, length);
@@ -37,8 +36,11 @@ export default function StoryFactory() {
       setImageLoading(true);
       try {
         const imageUrl = await geminiService.generateStoryImage(data.summary);
-        setStoryImage(imageUrl);
-        setResult((prev: any) => ({ ...prev, image: imageUrl }));
+        if (imageUrl) {
+          setResult((prev: any) => ({ ...prev, image: imageUrl }));
+        } else {
+          setImageError("Kota dolduğu için görsel oluşturulamadı.");
+        }
       } catch (imgErr: any) {
         console.error("Image generation failed:", imgErr);
         setImageError(imgErr.message || "Görsel oluşturulamadı.");
@@ -137,13 +139,61 @@ export default function StoryFactory() {
                 <Save size={20} /> Kaydet
               </button>
               <button 
-                onClick={async () => await exportToPDF(result.title, result, 'story')} 
+                onClick={() => setShowPdfDialog(true)} 
                 className="flex-1 sm:flex-none px-6 py-3 bg-pink-900/30 text-pink-400 rounded-xl hover:scale-105 transition-transform flex items-center justify-center gap-2 border border-pink-800 font-bold"
               >
                 <Download size={20} /> PDF İndir
               </button>
             </div>
           </div>
+
+          {/* PDF Dialog */}
+          <AnimatePresence>
+            {showPdfDialog && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  className="glass p-8 rounded-[2rem] w-full max-w-md space-y-6 bg-slate-800 border-slate-700"
+                >
+                  <h3 className="text-2xl font-black text-primary">PDF Seçenekleri</h3>
+                  <p className="text-slate-400 font-medium">Hikaye görseli PDF dosyasına dahil edilsin mi?</p>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <button 
+                      onClick={async () => {
+                        setShowPdfDialog(false);
+                        await exportToPDF(result.title, result, 'story', { includeImage: true });
+                      }}
+                      disabled={!result.image}
+                      className={`py-4 rounded-2xl font-bold flex flex-col items-center gap-2 transition-all ${result.image ? 'bg-primary text-white hover:scale-105' : 'bg-slate-700 text-slate-500 cursor-not-allowed'}`}
+                    >
+                      <Sparkles size={24} />
+                      Görselle Birlikte
+                    </button>
+                    <button 
+                      onClick={async () => {
+                        setShowPdfDialog(false);
+                        await exportToPDF(result.title, result, 'story', { includeImage: false });
+                      }}
+                      className="py-4 bg-slate-700 hover:bg-slate-600 text-white rounded-2xl font-bold flex flex-col items-center gap-2 transition-all hover:scale-105"
+                    >
+                      <Book size={24} />
+                      Sadece Metin
+                    </button>
+                  </div>
+                  
+                  <button 
+                    onClick={() => setShowPdfDialog(false)}
+                    className="w-full py-3 text-slate-400 font-bold hover:text-white transition-colors"
+                  >
+                    Vazgeç
+                  </button>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
 
           {imageLoading ? (
             <div className="w-full aspect-video bg-slate-800/50 rounded-3xl border border-slate-700 flex flex-col items-center justify-center gap-4 mb-8">
@@ -163,8 +213,11 @@ export default function StoryFactory() {
                   setImageError(null);
                   try {
                     const imageUrl = await geminiService.generateStoryImage(result.summary);
-                    setStoryImage(imageUrl);
-                    setResult((prev: any) => ({ ...prev, image: imageUrl }));
+                    if (imageUrl) {
+                      setResult((prev: any) => ({ ...prev, image: imageUrl }));
+                    } else {
+                      setImageError("Kota dolduğu için görsel oluşturulamadı.");
+                    }
                   } catch (err: any) {
                     setImageError(err.message || "Tekrar deneme başarısız.");
                   } finally {
@@ -176,14 +229,14 @@ export default function StoryFactory() {
                 Tekrar Dene
               </button>
             </div>
-          ) : storyImage && (
+          ) : result.image && (
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className="w-full mb-8"
             >
               <img 
-                src={storyImage} 
+                src={result.image} 
                 alt={result.title} 
                 className="w-full aspect-video object-cover rounded-3xl border border-slate-700 shadow-2xl"
                 referrerPolicy="no-referrer"

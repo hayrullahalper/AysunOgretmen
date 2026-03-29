@@ -127,7 +127,17 @@ export const firestoreService = {
   },
 
   // Users
-  saveUser: async (user: { uid: string; email: string; role: 'admin' | 'user'; grade?: string }) => {
+  getUser: async (uid: string) => {
+    try {
+      const docRef = doc(db, 'users', uid);
+      const docSnap = await getDoc(docRef);
+      return docSnap.exists() ? docSnap.data() as { uid: string; email: string; role: 'admin' | 'user'; grade?: string; firstName?: string; lastName?: string } : null;
+    } catch (error) {
+      firestoreService.handleError(error, 'get', `users/${uid}`);
+      return null;
+    }
+  },
+  saveUser: async (user: { uid: string; email: string; role: 'admin' | 'user'; grade?: string; firstName?: string; lastName?: string }) => {
     try {
       await setDoc(doc(db, 'users', user.uid), user);
     } catch (error) {

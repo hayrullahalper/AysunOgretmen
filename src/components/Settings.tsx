@@ -1,31 +1,55 @@
 import React, { useState, useEffect } from 'react';
 import { firestoreService, UserSettings } from '../lib/firestore';
-import { Save, Settings as SettingsIcon } from 'lucide-react';
+import { Save, Settings as SettingsIcon, User } from 'lucide-react';
+import { auth } from '../firebase';
 
 export default function Settings() {
   const [defaultGrade, setDefaultGrade] = useState('1');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const loadSettings = async () => {
+    const loadData = async () => {
+      if (!auth.currentUser) return;
+      
       const settings = await firestoreService.getSettings();
       if (settings) {
         setDefaultGrade(settings.defaultGrade);
       }
+
+      const user = await firestoreService.getUser(auth.currentUser.uid);
+      if (user) {
+        setFirstName(user.firstName || '');
+        setLastName(user.lastName || '');
+      }
     };
-    loadSettings();
+    loadData();
   }, []);
 
   const handleSave = async () => {
+    if (!auth.currentUser) return;
     setLoading(true);
     try {
+      // Save settings
       await firestoreService.saveSettings({
         defaultGrade,
-        ownerId: '' // Will be set by service
+        ownerId: auth.currentUser.uid
       });
-      alert('Ayarlar kaydedildi!');
+
+      // Save user profile
+      await firestoreService.saveUser({
+        uid: auth.currentUser.uid,
+        email: auth.currentUser.email || '',
+        role: 'user',
+        firstName,
+        lastName
+      });
+
+      alert('Ayarlar ve profil kaydedildi!');
     } catch (error) {
       console.error(error);
+      alert('Kaydedilirken bir hata oluştu.');
     } finally {
       setLoading(false);
     }
@@ -38,6 +62,29 @@ export default function Settings() {
       </h2>
 
       <div className="space-y-6">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-sm font-semibold opacity-70">Adınız</label>
+            <input 
+              type="text"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              className="input-field"
+              placeholder="Adınız"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-semibold opacity-70">Soyadınız</label>
+            <input 
+              type="text"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              className="input-field"
+              placeholder="Soyadınız"
+            />
+          </div>
+        </div>
+
         <div className="space-y-2">
           <label className="text-sm font-semibold opacity-70">Varsayılan Sınıf</label>
           <select 
