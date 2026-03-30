@@ -4,7 +4,7 @@ import { firestoreService } from '../lib/firestore';
 import { exportToPDF } from '../lib/pdf';
 import { BookOpen, Sparkles, Download, Save, Loader2, Book, XCircle, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import ConfirmModal from './ConfirmModal';
+import SaveMaterialModal from './SaveMaterialModal';
 
 export default function StoryFactory() {
   const [topic, setTopic] = useState('');
@@ -58,7 +58,7 @@ export default function StoryFactory() {
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (customName: string) => {
     if (!result) return;
     setShowConfirmSave(false);
     try {
@@ -67,7 +67,7 @@ export default function StoryFactory() {
       
       await firestoreService.saveMaterial({
         id: crypto.randomUUID(),
-        title: result.title,
+        title: customName || result.title,
         content: contentWithoutImage,
         type: 'story',
         createdAt: new Date().toISOString(),
@@ -81,20 +81,16 @@ export default function StoryFactory() {
     }
   };
 
+  const defaultSaveName = `Hikaye - ${topic}`;
+
   return (
     <div className="space-y-6">
-      {result && (
-        <ConfirmModal
-          isOpen={showConfirmSave}
-          title="Hikayeyi Kaydet"
-          message={`"${result.title}" başlıklı hikayeyi kayıtlı materyallerinize eklemek istiyor musunuz?`}
-          confirmText="Kaydet"
-          cancelText="Vazgeç"
-          onConfirm={handleSave}
-          onCancel={() => setShowConfirmSave(false)}
-          variant="success"
-        />
-      )}
+      <SaveMaterialModal
+        isOpen={showConfirmSave}
+        onClose={() => setShowConfirmSave(false)}
+        onSave={handleSave}
+        defaultName={defaultSaveName}
+      />
       <div className="glass p-6 rounded-3xl bg-slate-800/70 border-slate-700 shadow-sm">
         <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-primary">
           <BookOpen className="text-primary" /> Hikaye Fabrikası

@@ -5,7 +5,7 @@ import { exportToPDF } from '../lib/pdf';
 import { Sparkles, Download, Save, Loader2, CheckCircle2, XCircle, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useSettings } from '../hooks/useSettings';
-import ConfirmModal from './ConfirmModal';
+import SaveMaterialModal from './SaveMaterialModal';
 
 export default function MaterialGenerator() {
   const { settings } = useSettings();
@@ -14,8 +14,9 @@ export default function MaterialGenerator() {
   const [topic, setTopic] = useState('');
   const [customRequest, setCustomRequest] = useState('');
   const [useCustomRequest, setUseCustomRequest] = useState(false);
-  const [questionCount, setQuestionCount] = useState('10');
-  const [questionType, setQuestionType] = useState('Test Sorusu');
+  const [mcCount, setMcCount] = useState(5);
+  const [tfCount, setTfCount] = useState(3);
+  const [openCount, setOpenCount] = useState(2);
   const [difficulty, setDifficulty] = useState('Orta');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -32,14 +33,28 @@ export default function MaterialGenerator() {
   const handleGenerate = async () => {
     if (useCustomRequest && !customRequest) return;
     if (!useCustomRequest && !topic) return;
+
+    const totalQuestions = mcCount + tfCount + openCount;
+    if (!useCustomRequest && totalQuestions > 30) {
+      alert('Toplam soru sayısı 30\'u geçemez.');
+      return;
+    }
     
     setLoading(true);
     setResult(null);
     setUserAnswers({});
     try {
       const finalTopic = useCustomRequest ? customRequest : topic;
-      const finalType = useCustomRequest ? 'Özel İstek' : `${questionCount} ${questionType} (Zorluk: ${difficulty})`;
-      const data = await geminiService.generateQuestions(grade, subject, finalTopic, finalType);
+      let data;
+      if (useCustomRequest) {
+        data = await geminiService.generateQuestions(grade, subject, finalTopic, 'Özel İstek');
+      } else {
+        data = await geminiService.generateDetailedQuestions(grade, subject, finalTopic, {
+          mc: mcCount,
+          tf: tfCount,
+          open: openCount
+        });
+      }
       setResult(data);
     } catch (error: any) {
       console.error(error);
@@ -49,13 +64,13 @@ export default function MaterialGenerator() {
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (customName: string) => {
     if (!result) return;
     setShowConfirmSave(false);
     try {
       await firestoreService.saveMaterial({
         id: crypto.randomUUID(),
-        title: result.title,
+        title: customName || result.title,
         content: result,
         type: 'quiz',
         createdAt: new Date().toISOString(),
@@ -73,20 +88,16 @@ export default function MaterialGenerator() {
     setUserAnswers(prev => ({ ...prev, [qIndex]: answer }));
   };
 
+  const defaultSaveName = `${grade}. Sınıf - ${subject} - ${topic || 'Genel Konu'}`;
+
   return (
     <div className="space-y-6">
-      {result && (
-        <ConfirmModal
-          isOpen={showConfirmSave}
-          title="Materyali Kaydet"
-          message={`"${result.title}" başlıklı materyali kayıtlı materyallerinize eklemek istiyor musunuz?`}
-          confirmText="Kaydet"
-          cancelText="Vazgeç"
-          onConfirm={handleSave}
-          onCancel={() => setShowConfirmSave(false)}
-          variant="success"
-        />
-      )}
+      <SaveMaterialModal
+        isOpen={showConfirmSave}
+        onClose={() => setShowConfirmSave(false)}
+        onSave={handleSave}
+        defaultName={defaultSaveName}
+      />
       <div className="glass p-6 rounded-3xl border-slate-700 shadow-sm bg-slate-800/70">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold flex items-center gap-2 text-primary">
@@ -139,31 +150,44 @@ export default function MaterialGenerator() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-semibold opacity-70">Soru Sayısı</label>
-                <select 
-                  value={questionCount} 
-                  onChange={(e) => setQuestionCount(e.target.value)}
+                <label className="text-sm font-semibold opacity-70">Çoktan Seçmeli</label>
+                <input 
+                  type="number"
+                  min="0"
+                  max="30"
+                  value={mcCount}
+                  onChange={(e) => setMcCount(parseInt(e.target.value) || 0)}
                   className="input-field border-slate-700 bg-slate-800"
-                >
-                  {['5', '10', '15', '20'].map(n => <option key={n} value={n}>{n} Soru</option>)}
-                </select>
+                />
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-semibold opacity-70">Soru Tipi</label>
-                <select 
-                  value={questionType} 
-                  onChange={(e) => setQuestionType(e.target.value)}
+                <label className="text-sm font-semibold opacity-70">Doğru/Yanlış</label>
+                <input 
+                  type="number"
+                  min="0"
+                  max="30"
+                  value={tfCount}
+                  onChange={(e) => setTfCount(parseInt(e.target.value) || 0)}
                   className="input-field border-slate-700 bg-slate-800"
-                >
-                  <option value="Test Sorusu">Test Sorusu</option>
-                  <option value="Boşluk Doldurma">Boşluk Doldurma</option>
-                  <option value="Doğru/Yanlış">Doğru/Yanlış</option>
-                  <option value="Karışık (Test, Boşluk, D/Y)">Karışık</option>
-                </select>
+                />
               </div>
 
               <div className="space-y-2">
+                <label className="text-sm font-semibold opacity-70">Açık Uçlu</label>
+                <input 
+                  type="number"
+                  min="0"
+                  max="30"
+                  value={openCount}
+                  onChange={(e) => setOpenCount(parseInt(e.target.value) || 0)}
+                  className="input-field border-slate-700 bg-slate-800"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col md:flex-row gap-4 items-end">
+              <div className="space-y-2 flex-1 w-full">
                 <label className="text-sm font-semibold opacity-70">Zorluk Seviyesi</label>
                 <select 
                   value={difficulty} 
@@ -174,6 +198,9 @@ export default function MaterialGenerator() {
                   <option value="Orta">Orta</option>
                   <option value="Zor">Zor</option>
                 </select>
+              </div>
+              <div className="text-xs opacity-50 pb-3">
+                Toplam: {mcCount + tfCount + openCount} / 30 Soru
               </div>
             </div>
           </div>

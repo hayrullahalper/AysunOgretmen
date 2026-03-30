@@ -4,7 +4,7 @@ import { firestoreService } from '../lib/firestore';
 import { Search, Youtube, Sparkles, Loader2, BookOpen, ExternalLink, RefreshCw, Save, Check, HelpCircle, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useSettings } from '../hooks/useSettings';
-import ConfirmModal from './ConfirmModal';
+import SaveMaterialModal from './SaveMaterialModal';
 
 export default function WeeklyResearch() {
   const { settings } = useSettings();
@@ -40,13 +40,13 @@ export default function WeeklyResearch() {
     }
   }, [settings]);
 
-  const handleSave = async () => {
+  const handleSave = async (customName: string) => {
     if (!research) return;
     setShowConfirmSave(false);
     try {
       await firestoreService.saveMaterial({
         id: crypto.randomUUID(),
-        title: research.topic,
+        title: customName || research.topic,
         content: research,
         type: 'research',
         createdAt: new Date().toISOString(),
@@ -60,17 +60,15 @@ export default function WeeklyResearch() {
     }
   };
 
+  const defaultSaveName = `Araştırma - ${research?.topic || ''}`;
+
   return (
     <div className="space-y-6">
-      <ConfirmModal
+      <SaveMaterialModal
         isOpen={showConfirmSave}
-        title="Konuyu Kaydet"
-        message={`"${research?.topic}" konusunu kayıtlı materyallerinize eklemek istiyor musunuz?`}
-        confirmText="Kaydet"
-        cancelText="Vazgeç"
-        onConfirm={handleSave}
-        onCancel={() => setShowConfirmSave(false)}
-        variant="success"
+        onClose={() => setShowConfirmSave(false)}
+        onSave={handleSave}
+        defaultName={defaultSaveName}
       />
 
       <div className="glass p-8 rounded-3xl bg-slate-800/70 border-slate-700">

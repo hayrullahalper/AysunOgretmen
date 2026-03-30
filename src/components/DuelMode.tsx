@@ -16,6 +16,7 @@ export default function DuelMode() {
   const [question, setQuestion] = useState<any>(null);
   const [winner, setWinner] = useState<Student | null>(null);
   const [showAnswer, setShowAnswer] = useState(false);
+  const [wrongAnswers, setWrongAnswers] = useState<Record<string, boolean>>({});
 
   // Settings
   const [grade, setGrade] = useState('1');
@@ -33,6 +34,7 @@ export default function DuelMode() {
     setQuestion(null);
     setWinner(null);
     setShowAnswer(false);
+    setWrongAnswers({});
 
     try {
       const q = await geminiService.generateDuelQuestion(grade, subject, topic);
@@ -78,11 +80,13 @@ export default function DuelMode() {
   }, [students, generateNewQuestion]);
 
   const handleAnswer = (student: Student, selectedOption: string) => {
-    if (winner || !question) return;
+    if (winner || !question || wrongAnswers[student.id]) return;
     
     if (selectedOption === question.answer) {
       setWinner(student);
       setShowAnswer(true);
+    } else {
+      setWrongAnswers(prev => ({ ...prev, [student.id]: true }));
     }
   };
 
@@ -148,11 +152,19 @@ export default function DuelMode() {
                         <button 
                           key={idx}
                           onClick={() => handleAnswer(duelists[0], opt)}
-                          className="p-3 bg-slate-700 hover:bg-slate-600 rounded-2xl border border-slate-600 text-slate-100 font-bold text-base transition-all active:scale-95"
+                          disabled={wrongAnswers[duelists[0].id]}
+                          className={`p-3 rounded-2xl border font-bold text-base transition-all active:scale-95 ${
+                            wrongAnswers[duelists[0].id] 
+                              ? 'bg-red-900/10 border-red-900/30 text-red-900/50 cursor-not-allowed' 
+                              : 'bg-slate-700 hover:bg-slate-600 border-slate-600 text-slate-100'
+                          }`}
                         >
                           {String.fromCharCode(65 + idx)}) {opt}
                         </button>
                       ))}
+                      {wrongAnswers[duelists[0].id] && (
+                        <p className="text-red-500 text-xs font-bold mt-2">Yanlış cevap! Bu soru için devre dışısın.</p>
+                      )}
                     </div>
                   )}
                   {winner === duelists?.[0] && (
@@ -266,11 +278,19 @@ export default function DuelMode() {
                         <button 
                           key={idx}
                           onClick={() => handleAnswer(duelists[1], opt)}
-                          className="p-3 bg-slate-700 hover:bg-slate-600 rounded-2xl border border-slate-600 text-slate-100 font-bold text-base transition-all active:scale-95"
+                          disabled={wrongAnswers[duelists[1].id]}
+                          className={`p-3 rounded-2xl border font-bold text-base transition-all active:scale-95 ${
+                            wrongAnswers[duelists[1].id] 
+                              ? 'bg-red-900/10 border-red-900/30 text-red-900/50 cursor-not-allowed' 
+                              : 'bg-slate-700 hover:bg-slate-600 border-slate-600 text-slate-100'
+                          }`}
                         >
                           {String.fromCharCode(65 + idx)}) {opt}
                         </button>
                       ))}
+                      {wrongAnswers[duelists[1].id] && (
+                        <p className="text-red-500 text-xs font-bold mt-2">Yanlış cevap! Bu soru için devre dışısın.</p>
+                      )}
                     </div>
                   )}
                   {winner === duelists?.[1] && (

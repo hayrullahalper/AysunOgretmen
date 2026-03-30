@@ -17,7 +17,8 @@ import {
   Swords,
   Search,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Camera
 } from 'lucide-react';
 import { auth } from './firebase';
 import { firestoreService } from './lib/firestore';
@@ -40,8 +41,9 @@ import SavedMaterials from './components/SavedMaterials';
 import SpecialDays from './components/SpecialDays';
 import DuelMode from './components/DuelMode';
 import WeeklyResearch from './components/WeeklyResearch';
+import PhotoToQuestion from './components/PhotoToQuestion';
 
-type Tab = 'students' | 'generator' | 'wheel' | 'story' | 'saved' | 'settings' | 'special' | 'duel' | 'research';
+type Tab = 'students' | 'generator' | 'wheel' | 'story' | 'saved' | 'settings' | 'special' | 'duel' | 'research' | 'photo';
 
 declare global {
   interface Window {
@@ -206,6 +208,7 @@ export default function App() {
   const tabs = [
     { id: 'students', label: 'Öğrenciler', icon: Users, color: 'text-blue-500' },
     { id: 'generator', label: 'Materyal Üretici', icon: Sparkles, color: 'text-yellow-500' },
+    { id: 'photo', label: 'Fotoğraftan Soru', icon: Camera, color: 'text-pink-500' },
     { id: 'wheel', label: 'Çarkıfelek', icon: RotateCw, color: 'text-purple-500' },
     { id: 'duel', label: 'Düello Modu', icon: Swords, color: 'text-red-500' },
     { id: 'story', label: 'Hikaye Fabrikası', icon: BookOpen, color: 'text-green-500' },
@@ -518,6 +521,7 @@ export default function App() {
             >
               {activeTab === 'students' && <StudentManagement />}
               {activeTab === 'generator' && <MaterialGenerator />}
+              {activeTab === 'photo' && <PhotoToQuestion />}
               {activeTab === 'wheel' && <WheelOfFortune />}
               {activeTab === 'duel' && <DuelMode />}
               {activeTab === 'story' && <StoryFactory />}
