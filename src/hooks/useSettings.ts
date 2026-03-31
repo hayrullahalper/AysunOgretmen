@@ -38,9 +38,17 @@ export function useSettings() {
     setLoading(true);
     try {
       const data = await firestoreService.getSettings();
-      setSettings(data);
       if (data) {
+        setSettings(data);
         localStorage.setItem(cacheKey, JSON.stringify(data));
+        localStorage.setItem(cacheTimeKey, Date.now().toString());
+      } else {
+        const defaultSettings: UserSettings = {
+          defaultGrade: '1',
+          ownerId: auth.currentUser.uid
+        };
+        setSettings(defaultSettings);
+        localStorage.setItem(cacheKey, JSON.stringify(defaultSettings));
         localStorage.setItem(cacheTimeKey, Date.now().toString());
       }
     } catch (error) {

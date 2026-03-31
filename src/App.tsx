@@ -18,7 +18,8 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
-  Camera
+  Camera,
+  TrendingUp
 } from 'lucide-react';
 import { auth } from './firebase';
 import { firestoreService } from './lib/firestore';
@@ -42,8 +43,9 @@ import SpecialDays from './components/SpecialDays';
 import DuelMode from './components/DuelMode';
 import WeeklyResearch from './components/WeeklyResearch';
 import PhotoToQuestion from './components/PhotoToQuestion';
+import AdminDashboard from './components/AdminDashboard';
 
-type Tab = 'students' | 'generator' | 'wheel' | 'story' | 'saved' | 'settings' | 'special' | 'duel' | 'research' | 'photo';
+type Tab = 'students' | 'generator' | 'wheel' | 'story' | 'saved' | 'settings' | 'special' | 'duel' | 'research' | 'photo' | 'admin';
 
 declare global {
   interface Window {
@@ -59,6 +61,7 @@ export default function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [userRole, setUserRole] = useState<'admin' | 'user' | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   
   // Auth Form State
@@ -99,8 +102,14 @@ export default function App() {
   }, [activeTab]);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
+      if (user) {
+        const userData = await firestoreService.getUser(user.uid);
+        setUserRole(userData?.role || 'user');
+      } else {
+        setUserRole(null);
+      }
       setAuthLoading(false);
     });
     // Force dark mode
@@ -176,6 +185,10 @@ export default function App() {
           firstName: result.user.displayName?.split(' ')[0] || '',
           lastName: result.user.displayName?.split(' ').slice(1).join(' ') || ''
         });
+        await firestoreService.saveSettings({
+          defaultGrade: '1',
+          ownerId: result.user.uid
+        });
       }
     } catch (err: any) {
       console.error("Google Sign-In Error:", err);
@@ -216,6 +229,7 @@ export default function App() {
     { id: 'research', label: 'Haftalık Araştırma', icon: Search, color: 'text-cyan-500' },
     { id: 'saved', label: 'Kayıtlı Materyaller', icon: BookMarked, color: 'text-pink-500' },
     { id: 'settings', label: 'Ayarlar', icon: SettingsIcon, color: 'text-slate-500' },
+    ...(userRole === 'admin' ? [{ id: 'admin', label: 'Yönetici Paneli', icon: TrendingUp, color: 'text-indigo-500' }] : []),
   ];
 
   if (authLoading) {
@@ -529,6 +543,7 @@ export default function App() {
               {activeTab === 'research' && <WeeklyResearch />}
               {activeTab === 'saved' && <SavedMaterials />}
               {activeTab === 'settings' && <Settings />}
+              {activeTab === 'admin' && <AdminDashboard />}
             </motion.div>
           </AnimatePresence>
         </main>

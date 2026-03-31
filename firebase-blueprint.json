@@ -46,6 +46,19 @@
         "role": { "type": "string", "enum": ["admin", "user"] }
       },
       "required": ["uid", "email", "role"]
+    },
+    "usage": {
+      "title": "Usage",
+      "description": "Günlük token kullanım verileri",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "email": { "type": "string" },
+        "date": { "type": "string" },
+        "tokens": { "type": "number" },
+        "cost": { "type": "number" }
+      },
+      "required": ["userId", "email", "date", "tokens", "cost"]
     }
   },
   "firestore": {
@@ -64,6 +77,10 @@
     "/users/{userId}": {
       "schema": "users",
       "description": "Kullanıcı profilleri"
+    },
+    "/usage/{usageId}": {
+      "schema": "usage",
+      "description": "Kullanıcı bazlı günlük kullanım istatistikleri"
     }
   }
 }
