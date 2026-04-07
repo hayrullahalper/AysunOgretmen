@@ -1,35 +1,17 @@
 import { GoogleGenAI } from "@google/genai";
-import { doc, getDoc, setDoc, updateDoc, increment } from "firebase/firestore";
 import { db, auth } from "../firebase";
 
 // Detect environment
 const IS_AI_STUDIO = window.location.hostname.includes('run.app') || window.location.hostname.includes('localhost');
 const GEMINI_API_KEY = (process.env as any).GEMINI_API_KEY || "";
 
-// Constants for limits and costs
-const DEFAULT_DAILY_TOKEN_LIMIT = 500000;
-const SPECIAL_USER_EMAIL = "aysunalper123@gmail.com";
-const SPECIAL_DAILY_TOKEN_LIMIT = 1000000;
-
-// Detailed Pricing (per 1M tokens)
-const MODEL_PRICING: Record<string, { input: number; output: number; image?: number }> = {
-  "gemini-3-flash-preview": { input: 0.50 / 1000000, output: 3.00 / 1000000 },
-  "gemini-3.1-flash-image-preview": { input: 0.50 / 1000000, output: 3.00 / 1000000, image: 0.067 },
-  "gemini-2.5-flash-preview": { input: 0.30 / 1000000, output: 2.50 / 1000000 },
-  "gemini-2.5-flash-lite-preview": { input: 0.10 / 1000000, output: 0.40 / 1000000 },
-  "gemini-3.1-flash-lite-preview": { input: 0.10 / 1000000, output: 0.40 / 1000000 },
-  "gemini-2.5-flash-image": { input: 0.30 / 1000000, output: 30.00 / 1000000, image: 0.039 },
-  "gemma-3": { input: 0, output: 0 },
-  "imagen-4-fast": { input: 0, output: 0, image: 0.02 },
-  "imagen-4-standard": { input: 0, output: 0, image: 0.04 },
-  "imagen-4-ultra": { input: 0, output: 0, image: 0.06 },
-};
 
 const FALLBACK_CHAIN = [
-  "gemini-3-flash-preview",
   "gemini-3.1-flash-lite-preview",
+  "gemini-3-flash-preview",
   "gemini-2.5-flash-lite-preview",
-  "gemma-3"
+  "gemini-2.5-flash-preview",
+  "gemini-2.0-flash-lite-preview"
 ];
 
 // Initialize SDK only if key is present (AI Studio mode)
@@ -38,84 +20,9 @@ if (GEMINI_API_KEY) {
   ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 }
 
-async function checkUsageLimit(): Promise<{ allowed: boolean; used?: number; limit?: number }> {
-  if (!auth.currentUser) return { allowed: true };
-  
-  const today = new Date().toISOString().split('T')[0];
-  const usageId = `${auth.currentUser.uid}_${today}`;
-  const usageRef = doc(db, "usage", usageId);
-  
-  try {
-    const docSnap = await getDoc(usageRef);
-    const used = docSnap.exists() ? docSnap.data().tokens || 0 : 0;
-    const limit = auth.currentUser.email === SPECIAL_USER_EMAIL ? SPECIAL_DAILY_TOKEN_LIMIT : DEFAULT_DAILY_TOKEN_LIMIT;
-    
-    return {
-      allowed: used < limit,
-      used,
-      limit
-    };
-  } catch (error) {
-    console.error("Error checking usage limit:", error);
-    return { allowed: true }; // Allow if check fails to not block user
-  }
-}
-
-async function trackUsage(model: string, usageMetadata: any, imageCount: number = 0) {
-  if (!auth.currentUser || (!usageMetadata && imageCount === 0)) return;
-  
-  const today = new Date().toISOString().split('T')[0];
-  const usageId = `${auth.currentUser.uid}_${today}`;
-  const usageRef = doc(db, "usage", usageId);
-  
-  const inputTokens = usageMetadata?.promptTokenCount || 0;
-  const outputTokens = usageMetadata?.candidatesTokenCount || 0;
-  const totalTokens = inputTokens + outputTokens;
-
-  // Find pricing
-  const pricing = MODEL_PRICING[model] || MODEL_PRICING["gemini-3-flash-preview"];
-  
-  let cost = (inputTokens * pricing.input) + (outputTokens * pricing.output);
-  if (imageCount > 0 && pricing.image) {
-    cost += imageCount * pricing.image;
-  }
-  
-  try {
-    const docSnap = await getDoc(usageRef);
-    if (docSnap.exists()) {
-      await updateDoc(usageRef, {
-        tokens: increment(totalTokens),
-        cost: increment(cost)
-      });
-    } else {
-      await setDoc(usageRef, {
-        userId: auth.currentUser.uid,
-        email: auth.currentUser.email,
-        date: today,
-        tokens: totalTokens,
-        cost: cost
-      });
-    }
-  } catch (error) {
-    console.error("Error tracking usage:", error);
-  }
-}
 
 // Helper for calling Gemini with robust fallback mechanism
 async function callGeminiWithFallback(params: any, customFallbackChain?: string[] | string): Promise<any> {
-  // Check limit first
-  const limitCheck = await checkUsageLimit();
-  if (!limitCheck.allowed) {
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(0, 0, 0, 0);
-    const waitMs = tomorrow.getTime() - now.getTime();
-    const waitHours = Math.ceil(waitMs / (1000 * 60 * 60));
-    
-    throw new Error(`Günlük token kullanım sınırına ulaştınız (${limitCheck.limit?.toLocaleString()} token). Lütfen yaklaşık ${waitHours} saat sonra tekrar deneyiniz. Kayıtlı materyallerinizi kullanmaya devam edebilirsiniz.`);
-  }
-
   const modelsToTry = [
     params.model, 
     ...(Array.isArray(customFallbackChain) 
@@ -126,19 +33,20 @@ async function callGeminiWithFallback(params: any, customFallbackChain?: string[
 
   for (const modelName of modelsToTry) {
     try {
-      const currentParams = { ...params, model: modelName };
+      const currentParams = { 
+        ...params, 
+        model: modelName,
+        config: {
+          ...params.config,
+          // Optimize for speed by limiting output if not specified
+          maxOutputTokens: params.config?.maxOutputTokens || 2048,
+        }
+      };
       
       // If we have a local key and are in AI Studio, use the SDK directly
       if (ai && IS_AI_STUDIO) {
         const response = await ai.models.generateContent(currentParams);
         
-        // Track usage
-        if (response.usageMetadata) {
-          // Check if it was an image generation (some models return images in parts)
-          const imageCount = response.candidates?.[0]?.content?.parts?.filter(p => p.inlineData && p.inlineData.mimeType.startsWith('image/')).length || 0;
-          trackUsage(modelName, response.usageMetadata, imageCount);
-        }
-
         let text = "";
         try {
           text = response.text;
@@ -777,8 +685,31 @@ function shuffleArray<T>(array: T[]): T[] {
   return shuffled;
 }
 
+// Helper to manage recent questions in localStorage
+const RECENT_QUESTIONS_KEY = 'aysun_recent_questions';
+const MAX_RECENT_QUESTIONS = 20;
+
+function getRecentQuestions(): string[] {
+  try {
+    const stored = localStorage.getItem(RECENT_QUESTIONS_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+function addRecentQuestion(question: string) {
+  try {
+    const recent = getRecentQuestions();
+    const updated = [question, ...recent].slice(0, MAX_RECENT_QUESTIONS);
+    localStorage.setItem(RECENT_QUESTIONS_KEY, JSON.stringify(updated));
+  } catch (e) {
+    console.error("Error saving recent question:", e);
+  }
+}
+
 export const geminiService = {
-  generateQuestions: async (grade: string, subject: string, topic: string, type: string) => {
+  generateQuestions: async (grade: string, subject: string, topic: string, type: string, style: 'simple' | 'narrative' = 'narrative') => {
     try {
       let finalTopic = topic;
       const isGeneralCulture = subject === 'Genel Kültür' || topic.toLowerCase().includes('genel kültür');
@@ -788,15 +719,27 @@ export const geminiService = {
         finalTopic = `${topic} (Özellikle şu alt konuya odaklan: ${randomTopic})`;
       }
 
+      const recentQuestions = getRecentQuestions();
+      const avoidPrompt = recentQuestions.length > 0 
+        ? `\nŞU SORULARI VEYA BENZERLERİNİ ASLA SORMA (DAHA ÖNCE SORULDU):\n${recentQuestions.join('\n')}`
+        : '';
+
+      const stylePrompt = style === 'simple' 
+        ? "Sorular çok kısa, net ve doğrudan olmalı. Gereksiz hikayeleştirmeden kaçın."
+        : "Sorular ilkokul seviyesinde, hafif hikayeleştirilmiş ve ilgi çekici olmalı.";
+
       const randomSeed = Math.random().toString(36).substring(7);
       const timestamp = Date.now();
       const creativeConstraint = CREATIVE_CONSTRAINTS[Math.floor(Math.random() * CREATIVE_CONSTRAINTS.length)];
       
       const data = await callGeminiWithFallback({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3.1-flash-lite-preview",
         contents: `
           ${grade}. sınıf ${subject} dersi, ${finalTopic} konusu hakkında ${type} formatında sorular üret. 
           
+          STİL TALİMATI: ${stylePrompt}
+          ${avoidPrompt}
+
           KRİTİK TALİMATLAR:
           - Sorular her seferinde tamamen farklı, özgün ve daha önce sorulmamış olmalı.
           - Yaratıcı, merak uyandırıcı ve çocukların ilgisini çekecek bir dil kullan.
@@ -839,6 +782,7 @@ export const geminiService = {
       const result = JSON.parse(data.text);
       if (result.questions) {
         result.questions = result.questions.map((q: any) => {
+          addRecentQuestion(q.question);
           let options = q.options ? stripPrefixes(q.options) : undefined;
           if (options && options.length > 0) {
             options = shuffleArray(options);
@@ -860,7 +804,7 @@ export const geminiService = {
       const creativeConstraint = CREATIVE_CONSTRAINTS[Math.floor(Math.random() * CREATIVE_CONSTRAINTS.length)];
       
       const data = await callGeminiWithFallback({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3.1-flash-lite-preview",
         contents: `
           ${topic} konusu hakkında ilkokul seviyesinde ${lengthMap[length]} bir hikaye yaz ve bu hikaye ile ilgili ${questionCount} adet okuma-anlama sorusu oluştur. 
           Hikaye ve sorular her seferinde tamamen farklı, yaratıcı ve özgün olmalı. 
@@ -947,7 +891,7 @@ export const geminiService = {
       const creativeConstraint = CREATIVE_CONSTRAINTS[Math.floor(Math.random() * CREATIVE_CONSTRAINTS.length)];
       
       const data = await callGeminiWithFallback({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3.1-flash-lite-preview",
         contents: `
           ${studentName} isimli öğrenci için rastgele, eğitici ve genel kültür/matematik/türkçe karışık bir ilkokul sorusu sor. 
           Özellikle şu konuyu veya benzerini kullanabilirsin: ${randomTopic}. 
@@ -994,7 +938,7 @@ export const geminiService = {
       const creativeConstraint = CREATIVE_CONSTRAINTS[Math.floor(Math.random() * CREATIVE_CONSTRAINTS.length)];
       
       const data = await callGeminiWithFallback({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3.1-flash-lite-preview",
         contents: `
           ${day} özel günü için ilkokul seviyesinde bir ${type} üret. 
           İçerik her seferinde tamamen farklı, yaratıcı ve özgün olmalı. 
@@ -1059,7 +1003,7 @@ export const geminiService = {
     }
   },
 
-  generateDuelQuestion: async (grade: string, subject: string, topic: string) => {
+  generateDuelQuestion: async (grade: string, subject: string, topic: string, style: 'simple' | 'narrative' = 'narrative') => {
     try {
       let finalTopic = topic;
       if (subject === 'Genel Kültür' || topic.toLowerCase().includes('genel kültür')) {
@@ -1067,13 +1011,26 @@ export const geminiService = {
         finalTopic = `${topic} (Özellikle şu alt konuya odaklan: ${randomTopic})`;
       }
 
+      const recentQuestions = getRecentQuestions();
+      const avoidPrompt = recentQuestions.length > 0 
+        ? `\nŞU SORULARI VEYA BENZERLERİNİ ASLA SORMA (DAHA ÖNCE SORULDU):\n${recentQuestions.join('\n')}`
+        : '';
+
+      const stylePrompt = style === 'simple' 
+        ? "Soru çok kısa, net ve doğrudan olmalı. Gereksiz hikayeleştirmeden kaçın."
+        : "Soru ilkokul seviyesinde, hafif hikayeleştirilmiş ve ilgi çekici olmalı.";
+
       const randomSeed = Math.random().toString(36).substring(7);
       const creativeConstraint = CREATIVE_CONSTRAINTS[Math.floor(Math.random() * CREATIVE_CONSTRAINTS.length)];
 
       const data = await callGeminiWithFallback({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3.1-flash-lite-preview",
         contents: `
           ${grade}. sınıf ${subject} dersi, ${finalTopic} konusu hakkında 2 öğrencinin yarışabileceği, hızlı cevaplanabilecek 3 şıklı bir test sorusu üret. 
+          
+          STİL TALİMATI: ${stylePrompt}
+          ${avoidPrompt}
+
           Soru her seferinde tamamen farklı, şaşırtıcı ve özgün olmalı. 
           Yaratıcı Kısıtlama: ${creativeConstraint}
           (Rastgelelik ID: ${randomSeed} - Zaman: ${Date.now()})
@@ -1101,6 +1058,9 @@ export const geminiService = {
       }, "gemini-3.1-flash-lite-preview");
       
       const result = JSON.parse(data.text);
+      if (result.question) {
+        addRecentQuestion(result.question);
+      }
       if (result.options) {
         result.options = shuffleArray(stripPrefixes(result.options));
       }
@@ -1139,7 +1099,7 @@ export const geminiService = {
       }));
 
       const data = await callGeminiWithFallback({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3.1-flash-lite-preview",
         contents: {
           parts: [
             { text: prompt },
@@ -1163,9 +1123,9 @@ export const geminiService = {
                     options: { 
                       type: "ARRAY", 
                       items: { type: "STRING" }, 
-                      minItems: 3,
+                      minItems: 2,
                       maxItems: 3,
-                      description: "Sadece çoktan seçmeli sorular için tam olarak 3 seçenek olmalı. SADECE cevabı içermeli, A) B) gibi harfler eklenmemeli." 
+                      description: "Çoktan seçmeli için 3, Doğru/Yanlış için 2 seçenek olmalı. SADECE cevabı içermeli, A) B) gibi harfler eklenmemeli." 
                     },
                     answer: { type: "STRING" },
                     explanation: { type: "STRING" }
@@ -1177,14 +1137,17 @@ export const geminiService = {
             required: ["title", "questions"]
           }
         }
-      }, "gemini-3.1-pro-preview");
+      }, "gemini-3.1-flash-lite-preview");
 
       const result = JSON.parse(data.text);
       if (result.questions) {
         result.questions = result.questions.map((q: any) => {
+          addRecentQuestion(q.question);
           let options = q.options ? stripPrefixes(q.options) : undefined;
           if (options && options.length > 0) {
-            options = shuffleArray(options);
+            if (q.type !== 'true-false') {
+              options = shuffleArray(options);
+            }
           }
           return { ...q, options };
         });
@@ -1200,7 +1163,8 @@ export const geminiService = {
     grade: string, 
     subject: string, 
     topic: string, 
-    counts: { mc: number, tf: number, open: number }
+    counts: { mc: number, tf: number, open: number },
+    style: 'simple' | 'narrative' = 'narrative'
   ) => {
     try {
       let finalTopic = topic;
@@ -1211,22 +1175,36 @@ export const geminiService = {
         finalTopic = `${topic} (Özellikle şu alt konuya odaklan: ${randomTopic})`;
       }
 
+      const recentQuestions = getRecentQuestions();
+      const avoidPrompt = recentQuestions.length > 0 
+        ? `\nŞU SORULARI VEYA BENZERLERİNİ ASLA SORMA (DAHA ÖNCE SORULDU):\n${recentQuestions.join('\n')}`
+        : '';
+
+      const stylePrompt = style === 'simple' 
+        ? "Sorular çok kısa, net ve doğrudan olmalı. Gereksiz hikayeleştirmeden kaçın."
+        : "Sorular ilkokul seviyesinde, hafif hikayeleştirilmiş ve ilgi çekici olmalı.";
+
       const randomSeed = Math.random().toString(36).substring(7);
       const timestamp = Date.now();
       const creativeConstraint = CREATIVE_CONSTRAINTS[Math.floor(Math.random() * CREATIVE_CONSTRAINTS.length)];
       
       const data = await callGeminiWithFallback({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3.1-flash-lite-preview",
         contents: `
           ${grade}. sınıf ${subject} dersi, ${finalTopic} konusu hakkında şu soruları üret:
           - ${counts.mc} adet çoktan seçmeli soru (her biri tam olarak 3 şıklı)
-          - ${counts.tf} adet Doğru/Yanlış sorusu
+          - ${counts.tf} adet Doğru/Yanlış sorusu (Sadece 2 seçenek olmalı: "Doğru" ve "Yanlış")
           - ${counts.open} adet açık uçlu soru
           
+          STİL TALİMATI: ${stylePrompt}
+          ${avoidPrompt}
+
           KRİTİK TALİMATLAR:
           - Sorular her seferinde tamamen farklı, özgün ve daha önce sorulmamış olmalı.
           - Yaratıcı, merak uyandırıcı ve çocukların ilgisini çekecek bir dil kullan.
           - Eğer konu "Genel Kültür" değilse, "Milli Maarif Modeli"ne uygun içerik üret.
+          - Çoktan seçmeli sorular için TAM OLARAK 3 seçenek üret.
+          - Doğru/Yanlış soruları için TAM OLARAK 2 seçenek üret: ["Doğru", "Yanlış"].
           - Yaratıcı Kısıtlama: ${creativeConstraint}
           - (Rastgelelik ID: ${randomSeed} - Zaman: ${timestamp})
         `,
@@ -1247,9 +1225,9 @@ export const geminiService = {
                     options: { 
                       type: "ARRAY", 
                       items: { type: "STRING" }, 
-                      minItems: 3,
+                      minItems: 2,
                       maxItems: 3,
-                      description: "Sadece çoktan seçmeli sorular için tam olarak 3 seçenek olmalı. SADECE cevabı içermeli, A) B) gibi harfler eklenmemeli." 
+                      description: "Çoktan seçmeli için 3, Doğru/Yanlış için 2 seçenek olmalı." 
                     },
                     answer: { type: "STRING" },
                     explanation: { type: "STRING" }
@@ -1266,9 +1244,16 @@ export const geminiService = {
       const result = JSON.parse(data.text);
       if (result.questions) {
         result.questions = result.questions.map((q: any) => {
+          addRecentQuestion(q.question);
           let options = q.options ? stripPrefixes(q.options) : undefined;
           if (options && options.length > 0) {
-            options = shuffleArray(options);
+            // Only shuffle if it's NOT a true-false question
+            if (q.type !== 'true-false') {
+              options = shuffleArray(options);
+            } else {
+              // For true-false, ensure options are exactly ["Doğru", "Yanlış"] in order or just leave as is if AI followed instructions
+              // But user said shuffling makes it nonsensical, so we keep order for TF
+            }
           }
           return { ...q, options };
         });
@@ -1286,7 +1271,7 @@ export const geminiService = {
       const creativeConstraint = CREATIVE_CONSTRAINTS[Math.floor(Math.random() * CREATIVE_CONSTRAINTS.length)];
       
       const data = await callGeminiWithFallback({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3.1-flash-lite-preview",
         contents: `${grade}. sınıf ilkokul öğrencileri için bu hafta araştırılabilecek, çocukların hayal gücünü zorlayan, doğa, uzay, hayvanlar alemi veya ilginç icatlar gibi çok ilgi çekici ve öğretici bir konu belirle. Özellikle şu konuyu veya benzerini kullanabilirsin: ${randomTopic}. Konu her seferinde farklı, şaşırtıcı ve özgün olmalı. Yaratıcı Kısıtlama: ${creativeConstraint}. (Rastgelelik ID: ${Math.random().toString(36).substring(7)} - Zaman: ${Date.now()}) Ayrıca bu konuyla ilgili çocukların izleyebileceği bir video materyal önerisi (YouTube araması için anahtar kelimeler) ekle. Araştırma sorularının her biri için kısa ve öğretici cevaplar da üret.`,
         config: {
           temperature: 1.0,

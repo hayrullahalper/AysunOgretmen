@@ -41,6 +41,7 @@ export default function WheelOfFortune() {
   const [grade, setGrade] = useState('1');
   const [subject, setSubject] = useState('Genel Kültür');
   const [topic, setTopic] = useState('Karışık');
+  const [questionStyle, setQuestionStyle] = useState<'simple' | 'narrative'>('narrative');
 
   useEffect(() => {
     if (settings) {
@@ -72,7 +73,7 @@ export default function WheelOfFortune() {
 
     // Start generating question immediately while spinning
     setLoadingQuestion(true);
-    geminiService.generateQuestions(grade, subject, topic, '1 Test Sorusu')
+    geminiService.generateQuestions(grade, subject, topic, '1 Test Sorusu', questionStyle)
       .then(q => {
         setQuestion(q.questions[0]);
       })
@@ -117,6 +118,23 @@ export default function WheelOfFortune() {
         <div className="flex items-center gap-2">
           <label className="text-xs font-bold opacity-50 uppercase text-slate-400">Konu</label>
           <input value={topic} onChange={(e) => setTopic(e.target.value)} className="input-field py-1 text-sm bg-slate-800 border-slate-700 text-slate-200" placeholder="Konu yazın..." />
+        </div>
+        <div className="flex items-center gap-2 md:col-span-3 border-t border-slate-700 pt-4 mt-2">
+          <label className="text-xs font-bold opacity-50 uppercase text-slate-400">Soru Tipi:</label>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => setQuestionStyle('narrative')}
+              className={`px-4 py-1 rounded-full text-xs font-bold transition-all ${questionStyle === 'narrative' ? 'bg-primary text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}
+            >
+              Hikayeleştirilmiş
+            </button>
+            <button 
+              onClick={() => setQuestionStyle('simple')}
+              className={`px-4 py-1 rounded-full text-xs font-bold transition-all ${questionStyle === 'simple' ? 'bg-primary text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}
+            >
+              Basit / Kısa
+            </button>
+          </div>
         </div>
       </div>
 

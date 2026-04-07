@@ -22,6 +22,7 @@ export default function DuelMode() {
   const [grade, setGrade] = useState('1');
   const [subject, setSubject] = useState('Genel Kültür');
   const [topic, setTopic] = useState('Karışık');
+  const [questionStyle, setQuestionStyle] = useState<'simple' | 'narrative'>('narrative');
 
   useEffect(() => {
     if (settings) {
@@ -37,7 +38,7 @@ export default function DuelMode() {
     setWrongAnswers({});
 
     try {
-      const q = await geminiService.generateDuelQuestion(grade, subject, topic);
+      const q = await geminiService.generateDuelQuestion(grade, subject, topic, questionStyle);
       setQuestion(q);
     } catch (error: any) {
       console.error(error);
@@ -86,7 +87,13 @@ export default function DuelMode() {
       setWinner(student);
       setShowAnswer(true);
     } else {
-      setWrongAnswers(prev => ({ ...prev, [student.id]: true }));
+      const newWrongAnswers = { ...wrongAnswers, [student.id]: true };
+      setWrongAnswers(newWrongAnswers);
+      
+      // Check if both are wrong
+      if (duelists && newWrongAnswers[duelists[0].id] && newWrongAnswers[duelists[1].id]) {
+        setShowAnswer(true);
+      }
     }
   };
 
@@ -118,6 +125,23 @@ export default function DuelMode() {
         <div className="flex items-center gap-2">
           <label className="text-xs font-bold opacity-50 uppercase text-slate-400">Konu</label>
           <input value={topic} onChange={(e) => setTopic(e.target.value)} className="input-field py-1 text-sm bg-slate-800 border-slate-700 text-slate-200" placeholder="Konu yazın..." />
+        </div>
+        <div className="flex items-center gap-2 md:col-span-3 border-t border-slate-700 pt-4 mt-2">
+          <label className="text-xs font-bold opacity-50 uppercase text-slate-400">Soru Tipi:</label>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => setQuestionStyle('narrative')}
+              className={`px-4 py-1 rounded-full text-xs font-bold transition-all ${questionStyle === 'narrative' ? 'bg-primary text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}
+            >
+              Hikayeleştirilmiş
+            </button>
+            <button 
+              onClick={() => setQuestionStyle('simple')}
+              className={`px-4 py-1 rounded-full text-xs font-bold transition-all ${questionStyle === 'simple' ? 'bg-primary text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}
+            >
+              Basit / Kısa
+            </button>
+          </div>
         </div>
       </div>
 
@@ -219,20 +243,25 @@ export default function DuelMode() {
                     <motion.div 
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="p-4 bg-blue-900/20 border border-blue-500 rounded-2xl text-left space-y-2"
+                      className={`p-4 rounded-2xl text-left space-y-2 ${winner ? 'bg-blue-900/20 border border-blue-500' : 'bg-red-900/20 border border-red-500'}`}
                     >
-                      <div className="text-blue-400 font-black text-base flex items-center gap-2">
-                        <CheckCircle2 size={18} /> CEVAP: {question.answer}
+                      {!winner && (
+                        <div className="text-red-400 font-black text-base flex items-center gap-2 mb-2">
+                          <XCircle size={18} /> HER İKİ ÖĞRENCİ DE YANLIŞ CEVAP VERDİ!
+                        </div>
+                      )}
+                      <div className={`${winner ? 'text-blue-400' : 'text-slate-200'} font-black text-base flex items-center gap-2`}>
+                        <CheckCircle2 size={18} /> DOĞRU CEVAP: {question.answer}
                       </div>
-                      <div className="text-xs text-blue-300 opacity-80 leading-relaxed">
+                      <div className={`text-xs ${winner ? 'text-blue-300' : 'text-slate-400'} opacity-80 leading-relaxed`}>
                         {question.explanation}
                       </div>
                       <div className="grid grid-cols-2 gap-2 mt-4">
                         <button 
                           onClick={generateNewQuestion}
-                          className="py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 text-sm"
+                          className={`py-2 rounded-xl font-bold flex items-center justify-center gap-2 text-sm ${winner ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-white'}`}
                         >
-                          <RotateCw size={16} /> Devam
+                          <RotateCw size={16} /> {winner ? 'Devam' : 'Yeni Soru'}
                         </button>
                         <button 
                           onClick={startDuel}

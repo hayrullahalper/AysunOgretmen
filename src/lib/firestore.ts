@@ -171,17 +171,5 @@ export const firestoreService = {
     } catch (error) {
       firestoreService.handleError(error, 'write', `users/${user.uid}`);
     }
-  },
-
-  // Usage
-  getUsageData: async (): Promise<any[]> => {
-    if (!auth.currentUser) return [];
-    try {
-      const snapshot = await getDocs(collection(db, 'usage'));
-      return snapshot.docs.map(doc => doc.data());
-    } catch (error) {
-      firestoreService.handleError(error, 'list', 'usage');
-      return [];
-    }
   }
 };

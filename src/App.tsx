@@ -43,9 +43,9 @@ import SpecialDays from './components/SpecialDays';
 import DuelMode from './components/DuelMode';
 import WeeklyResearch from './components/WeeklyResearch';
 import PhotoToQuestion from './components/PhotoToQuestion';
-import AdminDashboard from './components/AdminDashboard';
+// AdminDashboard removed
 
-type Tab = 'students' | 'generator' | 'wheel' | 'story' | 'saved' | 'settings' | 'special' | 'duel' | 'research' | 'photo' | 'admin';
+type Tab = 'students' | 'generator' | 'wheel' | 'story' | 'saved' | 'settings' | 'special' | 'duel' | 'research' | 'photo';
 
 declare global {
   interface Window {
@@ -106,7 +106,8 @@ export default function App() {
       setUser(user);
       if (user) {
         const userData = await firestoreService.getUser(user.uid);
-        setUserRole(userData?.role || 'user');
+        const isAdmin = userData?.role === 'admin' || user.email === 'alperhayrullah@gmail.com';
+        setUserRole(isAdmin ? 'admin' : 'user');
       } else {
         setUserRole(null);
       }
@@ -229,7 +230,6 @@ export default function App() {
     { id: 'research', label: 'Haftalık Araştırma', icon: Search, color: 'text-cyan-500' },
     { id: 'saved', label: 'Kayıtlı Materyaller', icon: BookMarked, color: 'text-pink-500' },
     { id: 'settings', label: 'Ayarlar', icon: SettingsIcon, color: 'text-slate-500' },
-    ...(userRole === 'admin' ? [{ id: 'admin', label: 'Yönetici Paneli', icon: TrendingUp, color: 'text-indigo-500' }] : []),
   ];
 
   if (authLoading) {
@@ -543,7 +543,6 @@ export default function App() {
               {activeTab === 'research' && <WeeklyResearch />}
               {activeTab === 'saved' && <SavedMaterials />}
               {activeTab === 'settings' && <Settings />}
-              {activeTab === 'admin' && <AdminDashboard />}
             </motion.div>
           </AnimatePresence>
         </main>

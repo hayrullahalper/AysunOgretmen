@@ -18,6 +18,7 @@ export default function MaterialGenerator() {
   const [tfCount, setTfCount] = useState(3);
   const [openCount, setOpenCount] = useState(2);
   const [difficulty, setDifficulty] = useState('Orta');
+  const [questionStyle, setQuestionStyle] = useState<'simple' | 'narrative'>('narrative');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [userAnswers, setUserAnswers] = useState<Record<number, string>>({});
@@ -47,13 +48,13 @@ export default function MaterialGenerator() {
       const finalTopic = useCustomRequest ? customRequest : topic;
       let data;
       if (useCustomRequest) {
-        data = await geminiService.generateQuestions(grade, subject, finalTopic, 'Özel İstek');
+        data = await geminiService.generateQuestions(grade, subject, finalTopic, 'Özel İstek', questionStyle);
       } else {
         data = await geminiService.generateDetailedQuestions(grade, subject, finalTopic, {
           mc: mcCount,
           tf: tfCount,
           open: openCount
-        });
+        }, questionStyle);
       }
       setResult(data);
     } catch (error: any) {
@@ -198,6 +199,26 @@ export default function MaterialGenerator() {
                   <option value="Orta">Orta</option>
                   <option value="Zor">Zor</option>
                 </select>
+              </div>
+
+              <div className="space-y-2 flex-1 w-full">
+                <label className="text-sm font-semibold opacity-70">Soru Stili</label>
+                <div className="flex gap-2">
+                  <button 
+                    type="button"
+                    onClick={() => setQuestionStyle('narrative')}
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${questionStyle === 'narrative' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
+                  >
+                    Hikayeleştirilmiş
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => setQuestionStyle('simple')}
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${questionStyle === 'simple' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
+                  >
+                    Basit / Kısa
+                  </button>
+                </div>
               </div>
               <div className="text-xs opacity-50 pb-3">
                 Toplam: {mcCount + tfCount + openCount} / 30 Soru
